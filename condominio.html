@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg:#f5f5f0;--surface:#fff;--surface2:#fafaf8;
@@ -398,7 +399,7 @@ textarea{resize:vertical;min-height:70px;}
       <div class="page-header">
         <div><div class="page-title">Tutti i movimenti</div><div class="page-subtitle">Storico completo</div></div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Esporta CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportXLSX()">📊 Esporta Excel</button>
           <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi</button>
         </div>
       </div>
@@ -505,7 +506,7 @@ textarea{resize:vertical;min-height:70px;}
         <select id="f-cat">
           <option value="affitti">🟢 Affitto</option>
           <option value="manutenzione">🟡 Manutenzione straord.</option>
-          <option value="condominio">🔵 Quote condominiali</option>
+          <option value="condominio">🔵 Quote condominiali (a carico inquilini)</option>
           <option value="tasse">🔴 Tasse / IMU acconto</option>
           <option value="tasse_fine_anno">🔴 Tasse fine anno (saldo)</option>
           <option value="tari_cond">🟠 TARI (a carico condomini)</option>
@@ -581,7 +582,7 @@ const CONDO_ICONS  = ['🏢','🏠','🏗','🏘','🏛','🏬','🏚','🏙'];
 const CATEGORIES = {
   affitti:           {label:'Affitto',                   color:'green',cls:'cat-affitti'},
   manutenzione:      {label:'Manutenzione straord.',      color:'amber',cls:'cat-manutenzione'},
-  condominio:        {label:'Quote condominiali',         color:'blue', cls:'cat-condominio'},
+  condominio:        {label:'Quote condominiali',         color:'blue', cls:'cat-condominio', condOwned:true},
   tasse:             {label:'Tasse / IMU acconto',        color:'red',  cls:'cat-tasse'},
   tasse_fine_anno:   {label:'Tasse fine anno (saldo)',    color:'red',  cls:'cat-tasse'},
   tari_cond:         {label:'TARI (condomini)',           color:'amber',cls:'cat-manutenzione',condOwned:true},
@@ -652,18 +653,18 @@ function loadData(condoId){
 function save(){ saveData(); }
 
 // ══ HOME SCREEN ══
-function renderHome(){
-  document.getElementById('home-screen').classList.add('active');
-  document.getElementById('app-screen').classList.remove('active');
-  // Sync drive status to home
-  const dot = document.getElementById('drive-dot');
-  const hdot = document.getElementById('home-drive-dot');
-  if(dot && hdot){ hdot.className = dot.className; }
-  const lbl = document.getElementById('drive-label');
-  const hlbl = document.getElementById('home-drive-status');
-  if(lbl && hlbl){ hlbl.innerHTML = lbl.innerHTML; }
+function syncDriveStatusToHome(){
+  const dot=document.getElementById('drive-dot');
+  const hdot=document.getElementById('home-drive-dot');
+  if(dot&&hdot) hdot.className=dot.className;
+  const lbl=document.getElementById('drive-label');
+  const hlbl=document.getElementById('home-drive-status');
+  if(lbl&&hlbl) hlbl.innerHTML=lbl.innerHTML;
+}
 
+function renderCondoGrid(){
   const grid = document.getElementById('condo-grid');
+  if(!grid) return;;
   if(!condos.length){
     grid.innerHTML = `
       <button class="condo-add-card" onclick="openCondoModal()">
@@ -698,6 +699,13 @@ function renderHome(){
       <div class="condo-add-icon">+</div>
       <div class="condo-add-label">Aggiungi condominio</div>
     </button>`;
+}
+
+function renderHome(){
+  document.getElementById('home-screen').classList.add('active');
+  document.getElementById('app-screen').classList.remove('active');
+  syncDriveStatusToHome();
+  renderCondoGrid();
 }
 
 function goHome(){
@@ -822,7 +830,7 @@ function onYearChange(y){
   currentYear=y;
   const av=document.querySelector('.view.active');
   if(av) navigate(av.id.replace('view-',''));
-  renderHome();
+  renderCondoGrid();
 }
 
 // ══ DASHBOARD ══
@@ -1074,6 +1082,7 @@ function renderOneri(){
     {key:'tari_cond',label:'TARI',icon:'🗑',desc:'Tassa rifiuti a carico degli inquilini'},
     {key:'acqua_cond',label:'Acqua conguaglio',icon:'💧',desc:'Conguaglio idrico fine anno'},
     {key:'riscaldamento_cond',label:'Riscaldamento',icon:'🔥',desc:'Quota riscaldamento centralizzato'},
+    {key:'condominio',label:'Quote condominiali',icon:'🏛',desc:'Quote ordinarie a carico degli inquilini'},
   ];
   let html=''; let totalOneri=0;
   ONERI_CATS.forEach(cat=>{
@@ -1205,18 +1214,147 @@ function openDeadlineModal(){ document.getElementById('d-desc').value=''; docume
 function saveDeadline(){ const desc=document.getElementById('d-desc').value.trim(); const date=document.getElementById('d-date').value; if(!desc||!date){showToast('Inserisci descrizione e data');return;} deadlines.push({id:uid(),desc,date,amount:parseFloat(document.getElementById('d-amount').value)||0,notes:document.getElementById('d-notes').value.trim()}); save(); closeModal('modal-deadline'); showToast('Scadenza salvata ✓'); renderScadenze(); }
 function deleteDeadline(id){ deadlines=deadlines.filter(d=>d.id!==id); save(); renderScadenze(); }
 
-// ══ EXPORT CSV ══
-function exportCSV(){
-  const yearTxs=txs.filter(inYear).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!yearTxs.length){showToast('Nessun dato da esportare');return;}
-  const header='Data,Tipo,Descrizione,Importo,Categoria,Metodo,Controparte,Note';
-  const rows=yearTxs.map(t=>[t.date,t.type,`"${t.desc}"`,t.amount,CATEGORIES[t.cat]?.label||t.cat,t.method,`"${t.party||''}"`,`"${(t.notes||'').replace(/"/g,'""')}"`].join(','));
-  const csv=[header,...rows].join('\n');
-  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`${currentCondo()?.name||'condominio'}_${currentYear}.csv`; a.click();
-  URL.revokeObjectURL(url); showToast('CSV esportato ✓');
+// ══ EXPORT EXCEL ══
+function exportXLSX(){
+  if(!window.XLSX){ showToast('Libreria Excel non ancora caricata, riprova'); return; }
+  const condo = currentCondo();
+  const allTxs = txs.filter(inYear);
+  if(!allTxs.length){ showToast('Nessun dato da esportare'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const name = (condo?.name||'Condominio').replace(/[^\w\s]/g,'').slice(0,28);
+
+  // ── Helpers ──
+  const euro = n => isNaN(n)?0:+n;
+  const sorted = [...allTxs].sort((a,b)=>a.date.localeCompare(b.date));
+  const ownerTxs = sorted.filter(isOwnerTx);
+  const condoTxs = sorted.filter(t=>!isOwnerTx(t));
+  const entrate  = ownerTxs.filter(t=>t.type==='entrata');
+  const uscite   = ownerTxs.filter(t=>t.type==='uscita');
+
+  // ── Sheet 1: RIEPILOGO ──
+  const riepilogo = [];
+  riepilogo.push([name + ' — Riepilogo ' + currentYear]);
+  riepilogo.push([]);
+  riepilogo.push(['ENTRATE PROPRIETARIO']);
+  riepilogo.push(['Categoria','N. movimenti','Totale (€)']);
+  const catIn = {};
+  entrate.forEach(t=>{ catIn[t.cat]=(catIn[t.cat]||[]); catIn[t.cat].push(t); });
+  let totIn = 0;
+  Object.entries(catIn).forEach(([cat,items])=>{
+    const tot = items.reduce((s,t)=>s+euro(t.amount),0);
+    totIn += tot;
+    riepilogo.push([CATEGORIES[cat]?.label||cat, items.length, tot]);
+  });
+  riepilogo.push(['TOTALE ENTRATE','', totIn]);
+  riepilogo.push([]);
+
+  riepilogo.push(['USCITE PROPRIETARIO']);
+  riepilogo.push(['Categoria','N. movimenti','Totale (€)']);
+  const catOut = {};
+  uscite.forEach(t=>{ catOut[t.cat]=(catOut[t.cat]||[]); catOut[t.cat].push(t); });
+  let totOut = 0;
+  Object.entries(catOut).forEach(([cat,items])=>{
+    const tot = items.reduce((s,t)=>s+euro(t.amount),0);
+    totOut += tot;
+    riepilogo.push([CATEGORIES[cat]?.label||cat, items.length, tot]);
+  });
+  riepilogo.push(['TOTALE USCITE','', totOut]);
+  riepilogo.push([]);
+  riepilogo.push(['SALDO NETTO','', totIn - totOut]);
+  riepilogo.push([]);
+
+  riepilogo.push(['ONERI A CARICO CONDOMINI']);
+  riepilogo.push(['Categoria','N. movimenti','Totale (€)']);
+  const catCondo = {};
+  condoTxs.forEach(t=>{ catCondo[t.cat]=(catCondo[t.cat]||[]); catCondo[t.cat].push(t); });
+  let totCondo = 0;
+  Object.entries(catCondo).forEach(([cat,items])=>{
+    const tot = items.reduce((s,t)=>s+euro(t.amount),0);
+    totCondo += tot;
+    riepilogo.push([CATEGORIES[cat]?.label||cat, items.length, tot]);
+  });
+  riepilogo.push(['TOTALE ONERI CONDOMINI','', totCondo]);
+
+  const ws1 = XLSX.utils.aoa_to_sheet(riepilogo);
+  ws1['!cols'] = [{wch:32},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Riepilogo');
+
+  // ── Sheet 2: ENTRATE ──
+  const sheetEntrate = [];
+  sheetEntrate.push(['ENTRATE ' + currentYear + ' — ' + name]);
+  sheetEntrate.push([]);
+  sheetEntrate.push(['Data','Descrizione','Importo (€)','Metodo','Controparte','Note']);
+  const catEntrateGroups = {};
+  entrate.forEach(t=>{ catEntrateGroups[t.cat]=(catEntrateGroups[t.cat]||[]); catEntrateGroups[t.cat].push(t); });
+  Object.entries(catEntrateGroups).forEach(([cat,items])=>{
+    sheetEntrate.push(['── '+( CATEGORIES[cat]?.label||cat)+' ──','','','','','']);
+    items.forEach(t=>sheetEntrate.push([t.date, t.desc, euro(t.amount), t.method||'', t.party||'', t.notes||'']));
+    const sub = items.reduce((s,t)=>s+euro(t.amount),0);
+    sheetEntrate.push(['','Subtotale '+( CATEGORIES[cat]?.label||cat)+':', sub,'','','']);
+    sheetEntrate.push([]);
+  });
+  sheetEntrate.push(['','TOTALE ENTRATE:', totIn,'','','']);
+  const ws2 = XLSX.utils.aoa_to_sheet(sheetEntrate);
+  ws2['!cols'] = [{wch:13},{wch:36},{wch:14},{wch:18},{wch:22},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Entrate');
+
+  // ── Sheet 3: USCITE PROPRIETARIO ──
+  const sheetUscite = [];
+  sheetUscite.push(['USCITE PROPRIETARIO ' + currentYear + ' — ' + name]);
+  sheetUscite.push([]);
+  sheetUscite.push(['Data','Descrizione','Importo (€)','Metodo','Controparte','Note']);
+  const catUsciteGroups = {};
+  uscite.forEach(t=>{ catUsciteGroups[t.cat]=(catUsciteGroups[t.cat]||[]); catUsciteGroups[t.cat].push(t); });
+  Object.entries(catUsciteGroups).forEach(([cat,items])=>{
+    sheetUscite.push(['── '+(CATEGORIES[cat]?.label||cat)+' ──','','','','','']);
+    items.forEach(t=>sheetUscite.push([t.date, t.desc, euro(t.amount), t.method||'', t.party||'', t.notes||'']));
+    const sub = items.reduce((s,t)=>s+euro(t.amount),0);
+    sheetUscite.push(['','Subtotale '+(CATEGORIES[cat]?.label||cat)+':', sub,'','','']);
+    sheetUscite.push([]);
+  });
+  sheetUscite.push(['','TOTALE USCITE:', totOut,'','','']);
+  const ws3 = XLSX.utils.aoa_to_sheet(sheetUscite);
+  ws3['!cols'] = [{wch:13},{wch:36},{wch:14},{wch:18},{wch:22},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Uscite');
+
+  // ── Sheet 4: ONERI CONDOMINI ──
+  const sheetOneri = [];
+  sheetOneri.push(['ONERI A CARICO CONDOMINI ' + currentYear + ' — ' + name]);
+  sheetOneri.push([]);
+  sheetOneri.push(['Data','Descrizione','Importo (€)','Metodo','Controparte','Stato']);
+  Object.entries(catCondo).forEach(([cat,items])=>{
+    sheetOneri.push(['── '+(CATEGORIES[cat]?.label||cat)+' ──','','','','','']);
+    items.forEach(t=>sheetOneri.push([t.date, t.desc, euro(t.amount), t.method||'', t.party||'', t.condPaid?'Riscosso':'Da riscuotere']));
+    const sub = items.reduce((s,t)=>s+euro(t.amount),0);
+    sheetOneri.push(['','Subtotale '+(CATEGORIES[cat]?.label||cat)+':', sub,'','','']);
+    sheetOneri.push([]);
+  });
+  sheetOneri.push(['','TOTALE ONERI:', totCondo,'','','']);
+  const ws4 = XLSX.utils.aoa_to_sheet(sheetOneri);
+  ws4['!cols'] = [{wch:13},{wch:36},{wch:14},{wch:18},{wch:22},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws4, 'Oneri condomini');
+
+  // ── Sheet 5: TUTTI I MOVIMENTI ──
+  const sheetTutti = [['Data','Tipo','Categoria','Descrizione','Importo (€)','Metodo','Controparte','Note','Allegato']];
+  sorted.forEach(t=>sheetTutti.push([
+    t.date,
+    t.type==='entrata'?'Entrata':'Uscita',
+    CATEGORIES[t.cat]?.label||t.cat,
+    t.desc, euro(t.amount),
+    t.method||'', t.party||'', t.notes||'',
+    t.fileName?'Sì':'No'
+  ]));
+  const ws5 = XLSX.utils.aoa_to_sheet(sheetTutti);
+  ws5['!cols'] = [{wch:13},{wch:10},{wch:26},{wch:36},{wch:14},{wch:18},{wch:22},{wch:30},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws5, 'Tutti i movimenti');
+
+  // ── Download ──
+  const fname = name.replace(/\s+/g,'_') + '_' + currentYear + '.xlsx';
+  XLSX.writeFile(wb, fname);
+  showToast('✓ Excel esportato: ' + fname);
 }
+
 
 // ══ GOOGLE DRIVE ══
 function setDriveStatus(state,msg){
@@ -1295,7 +1433,7 @@ async function driveLoadAll(silent=false){
   if(!silent) setDriveStatus('syncing','Caricamento...');
   try{
     const data=await driveFetchFile('condos_list.json');
-    if(data&&data.condos){ data.condos.forEach(dc=>{ if(!condos.find(c=>c.id===dc.id)) condos.push(dc); }); saveCondos(); renderHome(); }
+    if(data&&data.condos){ data.condos.forEach(dc=>{ if(!condos.find(c=>c.id===dc.id)) condos.push(dc); }); saveCondos(); renderCondoGrid(); }
     if(currentCondoId) await driveLoadData(currentCondoId,silent);
     const t=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     setDriveStatus('connected',`Sincronizzato ${t}`);
@@ -1311,7 +1449,7 @@ async function driveLoadData(condoId,silent=false){
       localStorage.setItem('condo_'+condoId+'_txs',JSON.stringify(txs));
       localStorage.setItem('condo_'+condoId+'_deadlines',JSON.stringify(deadlines));
       if(currentCondoId===condoId){ const av=document.querySelector('.view.active'); if(av) navigate(av.id.replace('view-','')); }
-      renderHome();
+      renderCondoGrid();
     }
   }catch(e){}
 }
