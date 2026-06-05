@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Condominio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f5f0;
+  --surface: #ffffff;
+  --surface2: #fafaf8;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.14);
+  --text: #1a1a18;
+  --text-2: #6b6b68;
+  --text-3: #a0a09d;
+  --accent: #1a1a18;
+  --green: #2d6a4f;
+  --green-bg: #edf7f2;
+  --green-light: #d8f0e6;
+  --red: #c0392b;
+  --red-bg: #fdf0ef;
+  --red-light: #f9d8d5;
+  --amber: #b35c00;
+  --amber-bg: #fdf3e7;
+  --blue: #1a4a8a;
+  --blue-bg: #edf2fc;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── LAYOUT ── */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+
+.main {
+  margin-left: 220px;
+  flex: 1;
+  padding: 32px 36px;
+  max-width: 960px;
+}
+
+/* ── SIDEBAR ── */
+.sidebar-logo {
+  padding: 28px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo h1 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.sidebar-logo p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.sidebar-nav {
+  padding: 12px 10px;
+  flex: 1;
+}
+
+.nav-section {
+  margin-bottom: 20px;
+}
+.nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 10px;
+  margin-bottom: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-2);
+  transition: background 0.12s, color 0.12s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--bg); color: var(--text); }
+.nav-item.active { background: var(--accent); color: #fff; }
+.nav-item .icon { font-size: 16px; opacity: 0.7; }
+.nav-item.active .icon { opacity: 1; }
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.year-badge {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.year-select {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-top: 4px;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── PAGE HEADER ── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.page-title { font-size: 22px; font-weight: 500; }
+.page-subtitle { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: opacity 0.12s, transform 0.1s;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-ghost {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+.btn-ghost:hover { background: var(--bg); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* ── STAT CARDS ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  font-weight: 500;
+}
+.stat-value.green { color: var(--green); }
+.stat-value.red { color: var(--red); }
+.stat-value.blue { color: var(--blue); }
+.stat-delta {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+/* ── TRANSACTIONS LIST ── */
+.tx-list { display: flex; flex-direction: column; gap: 2px; }
+
+.tx-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+  cursor: pointer;
+  position: relative;
+}
+.tx-item:hover { background: var(--bg); }
+
+.tx-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.tx-dot.green { background: var(--green); }
+.tx-dot.red { background: var(--red); }
+.tx-dot.amber { background: var(--amber); }
+.tx-dot.blue { background: var(--blue); }
+
+.tx-info { flex: 1; min-width: 0; }
+.tx-desc {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-meta { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+
+.tx-amount {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.tx-amount.positive { color: var(--green); }
+.tx-amount.negative { color: var(--red); }
+
+.tx-thumb {
+  width: 28px; height: 28px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.tx-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.tx-item:hover .tx-actions { opacity: 1; }
+.tx-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.tx-btn:hover { background: var(--border); color: var(--text); }
+.tx-btn.del:hover { color: var(--red); background: var(--red-bg); }
+
+/* ── CATEGORY BADGE ── */
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.cat-affitti { background: var(--green-bg); color: var(--green); }
+.cat-manutenzione { background: var(--amber-bg); color: var(--amber); }
+.cat-condominio { background: var(--blue-bg); color: var(--blue); }
+.cat-tasse { background: var(--red-bg); color: var(--red); }
+.cat-altro { background: var(--bg); color: var(--text-2); }
+.cat-utenze { background: #f0f4ff; color: #3a5fc0; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(3px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 28px;
+  width: 520px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+  animation: modal-in 0.18s ease;
+}
+@keyframes modal-in {
+  from { opacity:0; transform: translateY(8px) scale(0.98); }
+  to   { opacity:1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.modal-title { font-size: 17px; font-weight: 500; }
+.modal-close {
+  background: var(--bg);
+  border: none;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: var(--border); }
+
+/* ── FORM ── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+
+label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+input, select, textarea {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+textarea { resize: vertical; min-height: 70px; }
+
+.type-toggle {
+  display: flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.type-toggle button {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  background: var(--surface2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-2);
+  transition: background 0.12s, color 0.12s;
+}
+.type-toggle button.active-in { background: var(--green-bg); color: var(--green); }
+.type-toggle button.active-out { background: var(--red-bg); color: var(--red); }
+
+/* ── FILE UPLOAD ── */
+.file-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.file-zone:hover { border-color: var(--accent); background: var(--bg); }
+.file-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.file-zone-text { font-size: 13px; color: var(--text-3); }
+.file-zone-text strong { color: var(--text-2); }
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+}
+.file-preview img { width: 40px; height: 40px; object-fit: cover; border-radius: 5px; }
+.file-preview-name { font-size: 12px; color: var(--text-2); flex: 1; }
+.file-preview-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-3); font-size: 14px; padding: 2px;
+}
+.file-preview-remove:hover { color: var(--red); }
+
+/* ── CHARTS & SUMMARY ── */
+.chart-bar-container { display: flex; flex-direction: column; gap: 10px; }
+.chart-row { display: flex; align-items: center; gap: 12px; }
+.chart-label { font-size: 12px; color: var(--text-2); width: 130px; flex-shrink: 0; }
+.chart-track { flex: 1; height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.chart-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+.chart-val { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-2); width: 80px; text-align: right; }
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-2);
+  transition: background 0.1s, color 0.1s;
+}
+.filter-chip:hover { background: var(--bg); }
+.filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-search {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  font-size: 12px;
+  background: var(--surface);
+  width: 180px;
+}
+
+/* ── GOOGLE DRIVE STATUS ── */
+.drive-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.drive-status:hover { background: var(--border); }
+.drive-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-3);
+}
+.drive-dot.connected { background: var(--green); }
+.drive-dot.syncing { background: var(--amber); animation: pulse 1s infinite; }
+.drive-dot.error { background: var(--red); }
+@keyframes pulse {
+  0%,100% { opacity:1; } 50% { opacity:0.3; }
+}
+.drive-label { font-size: 11px; color: var(--text-2); flex: 1; line-height: 1.3; }
+.drive-label strong { display: block; font-weight: 600; }
+
+/* ── REGIME FISCALE ── */
+.regime-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 18px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface2);
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 140px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  text-align: left;
+}
+.regime-btn:hover { border-color: var(--accent); background: var(--bg); }
+.regime-btn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.tax-highlight {
+  background: var(--amber-bg);
+  border: 1px solid rgba(179,92,0,0.2);
+  border-radius: var(--radius-sm);
+  padding: 14px 18px;
+  margin-top: 12px;
+}
+.tax-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(179,92,0,0.12);
+}
+.tax-row:last-child { border-bottom: none; }
+.tax-row-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+/* ── BILANCIO ── */
+.bilancio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.bilancio-col {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.bilancio-col-header {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.bilancio-col-header.entrate { background: var(--green-bg); color: var(--green); }
+.bilancio-col-header.uscite  { background: var(--red-bg);   color: var(--red); }
+.bilancio-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.bilancio-row:last-child { border-bottom: none; }
+.bilancio-row.subtotal {
+  background: var(--surface2);
+  font-weight: 600;
+  font-size: 13px;
+}
+.bilancio-row.total-final {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.bilancio-row-label { color: var(--text-2); }
+.bilancio-row.subtotal .bilancio-row-label,
+.bilancio-row.total-final .bilancio-row-label { color: inherit; }
+.bilancio-amount { font-family: 'DM Mono', monospace; }
+
+.cond-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.cond-header {
+  padding: 12px 16px;
+  background: var(--amber-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.cond-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.cond-row:last-child { border-bottom: none; }
+.cond-row-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+.cond-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-weight: 600;
+}
+.paid-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--green-bg);
+  color: var(--green);
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+.unpaid-tag {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-3);
+}
+.empty-state-icon { font-size: 36px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 15px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* ── REPORT ── */
+.report-section { margin-bottom: 28px; }
+.report-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text-2); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.summary-table { width: 100%; border-collapse: collapse; }
+.summary-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.summary-table tr:last-child td { border-bottom: none; }
+.summary-table .mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+.summary-table .total-row td { font-weight: 600; font-size: 14px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 2000;
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── DETAIL PANEL ── */
+.detail-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 360px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+}
+.detail-panel.open { transform: translateX(0); }
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-body { flex: 1; overflow-y: auto; padding: 22px; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-key { color: var(--text-3); }
+.detail-val { font-weight: 500; text-align: right; }
+.detail-img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  margin-top: 16px;
+  border: 1px solid var(--border);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 720px) {
+  .sidebar { width: 60px; }
+  .sidebar-logo, .nav-label, .nav-item span, .sidebar-footer { display: none; }
+  .nav-item { justify-content: center; padding: 10px; }
+  .main { margin-left: 60px; padding: 20px 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .detail-panel { width: 100%; }
+}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Condominio</h1>
+      <p id="sidebar-name">Via Meda 119</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Panoramica</div>
+        <button class="nav-item active" onclick="navigate('dashboard')">
+          <span class="icon">⊞</span><span>Dashboard</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Movimenti</div>
+        <button class="nav-item" onclick="navigate('entrate')">
+          <span class="icon">↑</span><span>Entrate</span>
+        </button>
+        <button class="nav-item" onclick="navigate('uscite')">
+          <span class="icon">↓</span><span>Uscite</span>
+        </button>
+        <button class="nav-item" onclick="navigate('tutti')">
+          <span class="icon">≡</span><span>Tutti i movimenti</span>
+        </button>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Strumenti</div>
+        <button class="nav-item" onclick="navigate('bilancio')">
+          <span class="icon">⚖</span><span>Bilancio</span>
+        </button>
+        <button class="nav-item" onclick="navigate('oneri')">
+          <span class="icon">⊛</span><span>Oneri condomini</span>
+        </button>
+        <button class="nav-item" onclick="navigate('report')">
+          <span class="icon">◫</span><span>Report / 730</span>
+        </button>
+        <button class="nav-item" onclick="navigate('scadenze')">
+          <span class="icon">◷</span><span>Scadenzario</span>
+        </button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="drive-status" onclick="driveAction()" id="drive-status-btn" title="Google Drive">
+        <div class="drive-dot" id="drive-dot"></div>
+        <div class="drive-label" id="drive-label"><strong>Google Drive</strong>Non connesso</div>
+      </div>
+      <div class="year-badge">Anno fiscale</div>
+      <select class="year-select" id="year-select" onchange="onYearChange(this.value)">
+        <option>2026</option>
+        <option>2025</option>
+        <option>2024</option>
+        <option>2023</option>
+      </select>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle" id="dash-period">Anno 2026</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi movimento</button>
+      </div>
+
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:28px;">
+        <div class="card">
+          <div style="font-size:13px; font-weight:600; color:var(--text-2); margin-bottom:16px; letter-spacing:0.04em; text-transform:uppercase;">Ultimi movimenti</div>
+          <div class="tx-list" id="dash-recent"></div>
+        </div>
+        <div class="card">
+          <div style="font-size:13px; font-weight:600; color:var(--text-2); margin-bottom:16px; letter-spacing:0.04em; text-transform:uppercase;">Ripartizione uscite</div>
+          <div class="chart-bar-container" id="dash-chart"></div>
+        </div>
+      </div>
+
+      <div class="card" id="dash-balance-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:4px;">Saldo netto anno corrente</div>
+            <div style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500;" id="dash-saldo"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('report')">Vedi report →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENTRATE -->
+    <div id="view-entrate" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Entrate</div>
+          <div class="page-subtitle">Affitti, rimborsi, altri incassi</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('entrata')">+ Nuova entrata</button>
+      </div>
+      <div class="filter-bar" id="filter-entrate"></div>
+      <div class="card"><div class="tx-list" id="list-entrate"></div></div>
+    </div>
+
+    <!-- USCITE -->
+    <div id="view-uscite" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Uscite</div>
+          <div class="page-subtitle">Spese, fatture, bonifici al condominio &nbsp;<span style="font-size:11px;background:var(--amber-bg);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:500;">TARI/acqua/riscaldamento → Oneri condomini</span></div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('uscita')">+ Nuova uscita</button>
+      </div>
+      <div class="filter-bar" id="filter-uscite"></div>
+      <div class="card"><div class="tx-list" id="list-uscite"></div></div>
+    </div>
+
+    <!-- TUTTI -->
+    <div id="view-tutti" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Tutti i movimenti</div>
+          <div class="page-subtitle">Storico completo</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Esporta CSV</button>
+          <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi</button>
+        </div>
+      </div>
+      <div class="filter-bar" id="filter-tutti">
+        <button class="filter-chip active" data-f="all" onclick="setFilter('all',this)">Tutti</button>
+        <button class="filter-chip" data-f="entrata" onclick="setFilter('entrata',this)">Entrate</button>
+        <button class="filter-chip" data-f="uscita" onclick="setFilter('uscita',this)">Uscite</button>
+        <input class="filter-search" type="text" placeholder="Cerca..." oninput="searchFilter(this.value)">
+      </div>
+      <div class="card"><div class="tx-list" id="list-tutti"></div></div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="view-report" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Report / 730</div>
+          <div class="page-subtitle">Riepilogo fiscale e contabile</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="printReport()">🖨 Stampa</button>
+      </div>
+
+      <!-- FISCAL REGIME SELECTOR -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:14px;">Regime fiscale applicato</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="regime-btn active" id="btn-cedolare21" onclick="setRegime('cedolare21')">
+            <span style="font-size:15px;font-weight:600;">21%</span>
+            <span style="font-size:11px;color:inherit;opacity:0.75;display:block;margin-top:2px;">Cedolare secca<br>canone libero</span>
+          </button>
+          <button class="regime-btn" id="btn-cedolare10" onclick="setRegime('cedolare10')">
+            <span style="font-size:15px;font-weight:600;">10%</span>
+            <span style="font-size:11px;color:inherit;opacity:0.75;display:block;margin-top:2px;">Cedolare secca<br>canone concordato</span>
+          </button>
+          <button class="regime-btn" id="btn-irpef" onclick="setRegime('irpef')">
+            <span style="font-size:15px;font-weight:600;">IRPEF</span>
+            <span style="font-size:11px;color:inherit;opacity:0.75;display:block;margin-top:2px;">Regime ordinario<br>scaglioni progressivi</span>
+          </button>
+        </div>
+        <div id="regime-info" style="font-size:12px;color:var(--text-3);padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);line-height:1.6;"></div>
+      </div>
+
+      <div id="report-content"></div>
+    </div>
+
+    <!-- BILANCIO -->
+    <div id="view-bilancio" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bilancio</div>
+          <div class="page-subtitle" id="bilancio-subtitle">Anno 2026</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="printReport()">🖨 Stampa</button>
+      </div>
+      <div id="bilancio-content"></div>
+    </div>
+
+    <!-- ONERI CONDOMINI -->
+    <div id="view-oneri" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Oneri a carico condomini</div>
+          <div class="page-subtitle">TARI, acqua conguaglio, riscaldamento</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('uscita');setType('uscita');document.getElementById('f-cat').value='tari_cond'">+ Registra voce</button>
+      </div>
+      <div id="oneri-content"></div>
+    </div>
+
+    <!-- SCADENZARIO -->
+    <div id="view-scadenze" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Scadenzario</div>
+          <div class="page-subtitle">Prossimi pagamenti e scadenze</div>
+        </div>
+        <button class="btn btn-primary" onclick="openDeadlineModal()">+ Aggiungi scadenza</button>
+      </div>
+      <div class="card" id="scadenze-list"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Nuovo movimento -->
+<div class="modal-overlay" id="modal-tx">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-tx-title">Nuovo movimento</div>
+      <button class="modal-close" onclick="closeModal('modal-tx')">✕</button>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Tipo</label>
+        <div class="type-toggle">
+          <button id="btn-entrata" class="active-in" onclick="setType('entrata')">↑ Entrata</button>
+          <button id="btn-uscita" onclick="setType('uscita')">↓ Uscita</button>
+        </div>
+      </div>
+
+      <div class="form-group full">
+        <label>Descrizione</label>
+        <input type="text" id="f-desc" placeholder="Es. Affitto marzo 2026, Fattura idraulico...">
+      </div>
+
+      <div class="form-group">
+        <label>Importo (€)</label>
+        <input type="number" id="f-amount" placeholder="0,00" step="0.01" min="0">
+      </div>
+
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="f-date">
+      </div>
+
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="f-cat">
+          <option value="affitti">🟢 Affitto</option>
+          <option value="manutenzione">🟡 Manutenzione straord.</option>
+          <option value="condominio">🔵 Quote condominiali</option>
+          <option value="tasse">🔴 Tasse / IMU (acconto)</option>
+          <option value="tasse_fine_anno">🔴 Tasse fine anno (saldo)</option>
+          <option value="tari_cond">🟠 TARI (a carico condomini)</option>
+          <option value="acqua_cond">🟠 Acqua conguaglio (condomini)</option>
+          <option value="riscaldamento_cond">🟠 Riscaldamento (condomini)</option>
+          <option value="utenze">💡 Utenze</option>
+          <option value="altro">⬜ Altro</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Metodo pagamento</label>
+        <select id="f-method">
+          <option value="bonifico">Bonifico bancario</option>
+          <option value="contanti">Contanti</option>
+          <option value="rid">RID / Addebito diretto</option>
+          <option value="assegno">Assegno</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+
+      <div class="form-group full">
+        <label>Controparte (inquilino / ditta)</label>
+        <input type="text" id="f-party" placeholder="Es. Mario Rossi, FC Appalti srl...">
+      </div>
+
+      <div class="form-group full">
+        <label>Note</label>
+        <textarea id="f-notes" placeholder="Riferimento fattura, note aggiuntive..."></textarea>
+      </div>
+
+      <div class="form-group full">
+        <label>Allegato (foto ricevuta / fattura)</label>
+        <div class="file-zone" onclick="document.getElementById('f-file').click()">
+          <input type="file" id="f-file" accept="image/*,.pdf" style="display:none" onchange="onFileSelect(this)">
+          <div class="file-zone-text">
+            <strong>Clicca per selezionare</strong> o trascina qui<br>
+            <span>JPG, PNG, PDF fino a 10MB</span>
+          </div>
+        </div>
+        <div id="file-preview-area"></div>
+      </div>
+    </div>
+
+    <input type="hidden" id="f-id">
+
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tx')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveTx()">Salva movimento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Scadenza -->
+<div class="modal-overlay" id="modal-deadline">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">Nuova scadenza</div>
+      <button class="modal-close" onclick="closeModal('modal-deadline')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Descrizione</label>
+        <input type="text" id="d-desc" placeholder="Es. IMU acconto, Rata assicurazione...">
+      </div>
+      <div class="form-group">
+        <label>Data scadenza</label>
+        <input type="date" id="d-date">
+      </div>
+      <div class="form-group">
+        <label>Importo previsto (€)</label>
+        <input type="number" id="d-amount" placeholder="0,00" step="0.01">
+      </div>
+      <div class="form-group full">
+        <label>Note</label>
+        <input type="text" id="d-notes" placeholder="">
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-deadline')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDeadline()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div style="font-size:15px; font-weight:500;" id="dp-title">Dettaglio</div>
+    <button class="modal-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="detail-body" id="dp-body"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let txs = [];
+let deadlines = [];
+let currentType = 'entrata';
+let selectedFile = null;
+let selectedFileData = null;
+let currentFilter = 'all';
+let searchQuery = '';
+let currentYear = '2026';
+let editingId = null;
+let fiscalRegime = 'cedolare21'; // cedolare21 | cedolare10 | irpef
+
+const CATEGORIES = {
+  affitti:          { label: 'Affitto',                    color: 'green', cls: 'cat-affitti' },
+  manutenzione:     { label: 'Manutenzione straord.',       color: 'amber', cls: 'cat-manutenzione' },
+  condominio:       { label: 'Quote condominiali',          color: 'blue',  cls: 'cat-condominio' },
+  tasse:            { label: 'Tasse / IMU acconto',         color: 'red',   cls: 'cat-tasse' },
+  tasse_fine_anno:  { label: 'Tasse fine anno (saldo)',     color: 'red',   cls: 'cat-tasse' },
+  tari_cond:        { label: 'TARI (condomini)',            color: 'amber', cls: 'cat-manutenzione', condOwned: true },
+  acqua_cond:       { label: 'Acqua conguaglio (cond.)',    color: 'blue',  cls: 'cat-condominio',   condOwned: true },
+  riscaldamento_cond:{ label: 'Riscaldamento (condomini)', color: 'amber', cls: 'cat-manutenzione', condOwned: true },
+  utenze:           { label: 'Utenze',                     color: 'blue',  cls: 'cat-utenze' },
+  altro:            { label: 'Altro',                      color: 'amber', cls: 'cat-altro' },
+};
+
+// Transazioni che appartengono al bilancio del proprietario (esclude voci condomini)
+function isOwnerTx(t) {
+  return !CATEGORIES[t.cat]?.condOwned;
+}
+
+// ── GOOGLE DRIVE CONFIG ──
+const CLIENT_ID = '765529798488-9d17bd1u9mqi1iico8fickia8ochfbrf.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const FILE_NAME = 'condominio_data.json';
+
+let driveAccessToken = null;
+let driveFileId = null;
+let driveUser = null;
+let syncTimer = null;
+let gapiReady = false;
+let gisReady = false;
+
+// ── STORAGE (locale + Drive) ──
+function save() {
+  localStorage.setItem('condo_txs', JSON.stringify(txs));
+  localStorage.setItem('condo_deadlines', JSON.stringify(deadlines));
+  // Auto-sync su Drive se connesso (debounced 2s)
+  if(driveAccessToken) {
+    clearTimeout(syncTimer);
+    setDriveStatus('syncing', 'Salvataggio...');
+    syncTimer = setTimeout(() => driveSave(), 2000);
+  }
+}
+
+function load() {
+  try { txs = JSON.parse(localStorage.getItem('condo_txs')) || []; } catch(e){ txs = []; }
+  try { deadlines = JSON.parse(localStorage.getItem('condo_deadlines')) || []; } catch(e){ deadlines = []; }
+  // Ripristina token Drive se salvato
+  const saved = localStorage.getItem('condo_drive_token');
+  if(saved) {
+    try {
+      const d = JSON.parse(saved);
+      if(d.expires > Date.now()) {
+        driveAccessToken = d.token;
+        driveFileId = d.fileId || null;
+        driveUser = d.user || null;
+        setDriveStatus('connected', driveUser || 'Connesso');
+        // Carica dati aggiornati da Drive in background
+        setTimeout(() => driveLoad(true), 800);
+      } else {
+        localStorage.removeItem('condo_drive_token');
+      }
+    } catch(e) {}
+  }
+}
+
+// ── DRIVE STATUS UI ──
+function setDriveStatus(state, msg) {
+  const dot = document.getElementById('drive-dot');
+  const lbl = document.getElementById('drive-label');
+  if(!dot) return;
+  dot.className = 'drive-dot' + (state ? ' ' + state : '');
+  lbl.innerHTML = `<strong>Google Drive</strong>${msg}`;
+}
+
+// ── DRIVE ACTION (click sul widget) ──
+function driveAction() {
+  if(driveAccessToken) {
+    // Già connesso — mostra opzioni
+    showDriveMenu();
+  } else {
+    driveSignIn();
+  }
+}
+
+function showDriveMenu() {
+  const menu = document.createElement('div');
+  menu.style.cssText = `position:fixed;bottom:80px;left:20px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius);box-shadow:var(--shadow-md);z-index:9999;min-width:200px;overflow:hidden;`;
+  menu.innerHTML = `
+    <div style="padding:10px 14px;font-size:11px;color:var(--text-3);border-bottom:1px solid var(--border);">
+      ${driveUser || 'Account Google'}
+    </div>
+    <button onclick="driveSave(true);this.closest('div[style]').remove()" style="width:100%;padding:10px 14px;text-align:left;border:none;background:none;font-size:13px;cursor:pointer;font-family:inherit;">
+      ☁ Salva ora su Drive
+    </button>
+    <button onclick="driveLoad(false);this.closest('div[style]').remove()" style="width:100%;padding:10px 14px;text-align:left;border:none;background:none;font-size:13px;cursor:pointer;font-family:inherit;">
+      ↓ Carica da Drive
+    </button>
+    <button onclick="driveSignOut();this.closest('div[style]').remove()" style="width:100%;padding:10px 14px;text-align:left;border:none;background:none;font-size:13px;color:var(--red);cursor:pointer;font-family:inherit;border-top:1px solid var(--border);">
+      ✕ Disconnetti
+    </button>`;
+  document.body.appendChild(menu);
+  // Chiudi cliccando fuori
+  setTimeout(() => document.addEventListener('click', function h(e) {
+    if(!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', h); }
+  }), 100);
+}
+
+// ── OAUTH2 SIGN IN ──
+function driveSignIn() {
+  if(!window.google) {
+    showToast('Libreria Google non ancora caricata, riprova tra un momento');
+    return;
+  }
+  setDriveStatus('syncing', 'Connessione...');
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if(resp.error) {
+        setDriveStatus('error', 'Errore connessione');
+        showToast('Errore: ' + resp.error);
+        return;
+      }
+      driveAccessToken = resp.access_token;
+      // Recupera info utente
+      try {
+        const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: 'Bearer ' + driveAccessToken }
+        });
+        const u = await r.json();
+        driveUser = u.email || 'Account Google';
+      } catch(e) { driveUser = 'Account Google'; }
+      // Salva token con scadenza
+      localStorage.setItem('condo_drive_token', JSON.stringify({
+        token: driveAccessToken,
+        expires: Date.now() + (resp.expires_in || 3600) * 1000,
+        fileId: driveFileId,
+        user: driveUser
+      }));
+      setDriveStatus('connected', driveUser);
+      showToast('✓ Connesso a Google Drive');
+      // Prima connessione: carica da Drive (se esiste) o salva
+      driveLoad(true);
+    }
+  });
+  client.requestAccessToken();
+}
+
+function driveSignOut() {
+  driveAccessToken = null;
+  driveFileId = null;
+  driveUser = null;
+  localStorage.removeItem('condo_drive_token');
+  setDriveStatus('', 'Non connesso');
+  showToast('Disconnesso da Google Drive');
+}
+
+// ── DRIVE SAVE ──
+async function driveSave(manual = false) {
+  if(!driveAccessToken) return;
+  setDriveStatus('syncing', 'Salvataggio...');
+  const payload = JSON.stringify({ txs, deadlines, savedAt: new Date().toISOString() });
+  try {
+    let res;
+    if(driveFileId) {
+      // Update file esistente
+      res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + driveAccessToken,
+          'Content-Type': 'application/json'
+        },
+        body: payload
+      });
+    } else {
+      // Crea nuovo file in appDataFolder
+      const meta = new Blob([JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] })], { type: 'application/json' });
+      const data = new Blob([payload], { type: 'application/json' });
+      const form = new FormData();
+      form.append('metadata', meta);
+      form.append('file', data);
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + driveAccessToken },
+        body: form
+      });
+    }
+    if(res.ok) {
+      const json = await res.json();
+      driveFileId = json.id;
+      // Aggiorna fileId nel token salvato
+      const saved = JSON.parse(localStorage.getItem('condo_drive_token') || '{}');
+      saved.fileId = driveFileId;
+      localStorage.setItem('condo_drive_token', JSON.stringify(saved));
+      const t = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+      setDriveStatus('connected', `Salvato alle ${t}`);
+      if(manual) showToast('✓ Salvato su Google Drive');
+    } else if(res.status === 401) {
+      driveTokenExpired();
+    } else {
+      setDriveStatus('error', 'Errore salvataggio');
+      if(manual) showToast('Errore nel salvataggio su Drive');
+    }
+  } catch(e) {
+    setDriveStatus('error', 'Errore rete');
+    if(manual) showToast('Errore: ' + e.message);
+  }
+}
+
+// ── DRIVE LOAD ──
+async function driveLoad(silent = false) {
+  if(!driveAccessToken) return;
+  if(!silent) setDriveStatus('syncing', 'Caricamento...');
+  try {
+    // Cerca il file in appDataFolder
+    let fileId = driveFileId;
+    if(!fileId) {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${FILE_NAME}'&fields=files(id,name,modifiedTime)`, {
+        headers: { Authorization: 'Bearer ' + driveAccessToken }
+      });
+      if(r.status === 401) { driveTokenExpired(); return; }
+      const d = await r.json();
+      if(d.files && d.files.length > 0) {
+        fileId = d.files[0].id;
+        driveFileId = fileId;
+      }
+    }
+    if(!fileId) {
+      // Nessun file su Drive — salva quello locale
+      setDriveStatus('connected', driveUser || 'Connesso');
+      if(!silent) showToast('Nessun file su Drive — i dati locali verranno salvati');
+      driveSave(false);
+      return;
+    }
+    const r2 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + driveAccessToken }
+    });
+    if(!r2.ok) { setDriveStatus('error', 'Errore lettura'); return; }
+    const data = await r2.json();
+    // Merge: usa Drive come sorgente principale
+    if(data.txs) {
+      txs = data.txs;
+      deadlines = data.deadlines || [];
+      localStorage.setItem('condo_txs', JSON.stringify(txs));
+      localStorage.setItem('condo_deadlines', JSON.stringify(deadlines));
+      const av = document.querySelector('.view.active');
+      if(av) navigate(av.id.replace('view-',''));
+    }
+    const t = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+    setDriveStatus('connected', `Sincronizzato ${t}`);
+    if(!silent) showToast('✓ Dati caricati da Google Drive');
+  } catch(e) {
+    setDriveStatus('error', 'Errore rete');
+    if(!silent) showToast('Errore: ' + e.message);
+  }
+}
+
+function driveTokenExpired() {
+  driveAccessToken = null;
+  localStorage.removeItem('condo_drive_token');
+  setDriveStatus('error', 'Sessione scaduta — riconnetti');
+  showToast('Sessione Drive scaduta — clicca per riconnetterti');
+}
+
+// ── NAVIGATION ──
+function navigate(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if(n.getAttribute('onclick')?.includes("'"+view+"'")) n.classList.add('active');
+  });
+  if(view === 'dashboard') renderDashboard();
+  if(view === 'entrate') renderList('entrate');
+  if(view === 'uscite') renderList('uscite');
+  if(view === 'tutti') renderList('tutti');
+  if(view === 'bilancio') renderBilancio();
+  if(view === 'oneri') renderOneri();
+  if(view === 'report') renderReport();
+  if(view === 'scadenze') renderScadenze();
+}
+
+// ── YEAR ──
+function onYearChange(y) {
+  currentYear = y;
+  const av = document.querySelector('.view.active');
+  if(av) navigate(av.id.replace('view-',''));
+}
+
+// ── FORMAT ──
+function fmt(n) {
+  return new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(n);
+}
+function fmtDate(s) {
+  if(!s) return '—';
+  const d = new Date(s);
+  return d.toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' });
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ── FILTER BY YEAR ──
+function inYear(tx) {
+  return tx.date && tx.date.startsWith(currentYear);
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const yearTxs = txs.filter(inYear).filter(isOwnerTx);
+  const entrate = yearTxs.filter(t => t.type === 'entrata');
+  const uscite  = yearTxs.filter(t => t.type === 'uscita');
+  const totIn   = entrate.reduce((s,t) => s + +t.amount, 0);
+  const totOut  = uscite.reduce((s,t) => s + +t.amount, 0);
+  const saldo   = totIn - totOut;
+
+  document.getElementById('dash-period').textContent = 'Anno ' + currentYear;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Entrate totali</div>
+      <div class="stat-value green">${fmt(totIn)}</div>
+      <div class="stat-delta">${entrate.length} movimenti</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Uscite totali</div>
+      <div class="stat-value red">${fmt(totOut)}</div>
+      <div class="stat-delta">${uscite.length} movimenti</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Saldo netto</div>
+      <div class="stat-value ${saldo >= 0 ? 'green' : 'red'}">${fmt(saldo)}</div>
+      <div class="stat-delta">Entrate - Uscite</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Totale movimenti</div>
+      <div class="stat-value blue">${yearTxs.length}</div>
+      <div class="stat-delta">Anno ${currentYear}</div>
+    </div>
+  `;
+
+  // Recent
+  const recent = [...yearTxs].sort((a,b) => b.date.localeCompare(a.date)).slice(0,6);
+  const recentEl = document.getElementById('dash-recent');
+  if(!recent.length) {
+    recentEl.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-state-icon">📋</div><p>Nessun movimento registrato</p></div>';
+  } else {
+    recentEl.innerHTML = recent.map(t => txRow(t, true)).join('');
+  }
+
+  // Chart
+  const outByCat = {};
+  uscite.forEach(t => { outByCat[t.cat] = (outByCat[t.cat]||0) + +t.amount; });
+  const maxVal = Math.max(...Object.values(outByCat), 1);
+  const chartColors = { affitti:'#2d6a4f', manutenzione:'#b35c00', condominio:'#1a4a8a', tasse:'#c0392b', utenze:'#3a5fc0', altro:'#888' };
+  const chartEl = document.getElementById('dash-chart');
+  if(!Object.keys(outByCat).length) {
+    chartEl.innerHTML = '<p style="font-size:13px;color:var(--text-3);text-align:center;padding:20px">Nessuna uscita</p>';
+  } else {
+    chartEl.innerHTML = Object.entries(outByCat)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([cat,val]) => `
+        <div class="chart-row">
+          <div class="chart-label">${CATEGORIES[cat]?.label || cat}</div>
+          <div class="chart-track"><div class="chart-fill" style="width:${(val/maxVal*100).toFixed(1)}%;background:${chartColors[cat]||'#888'}"></div></div>
+          <div class="chart-val">${fmt(val)}</div>
+        </div>`).join('');
+  }
+
+  // Saldo
+  document.getElementById('dash-saldo').style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('dash-saldo').textContent = fmt(saldo);
+}
+
+// ── TX ROW ──
+function txRow(t, compact) {
+  const cat = CATEGORIES[t.cat] || CATEGORIES.altro;
+  const sign = t.type === 'entrata' ? '+' : '-';
+  const amtClass = t.type === 'entrata' ? 'positive' : 'negative';
+  const thumb = t.fileData ? `<img class="tx-thumb" src="${t.fileData}" title="Vedi allegato" onclick="event.stopPropagation();showDetail('${t.id}')">` : '';
+  return `
+    <div class="tx-item" onclick="showDetail('${t.id}')">
+      <div class="tx-dot ${cat.color}"></div>
+      <div class="tx-info">
+        <div class="tx-desc">${t.desc || '—'}</div>
+        <div class="tx-meta">
+          ${fmtDate(t.date)}
+          ${!compact ? `&nbsp;·&nbsp;<span class="cat-badge ${cat.cls}">${cat.label}</span>` : ''}
+          ${t.party ? `&nbsp;·&nbsp;${t.party}` : ''}
+        </div>
+      </div>
+      ${thumb}
+      <div class="tx-amount ${amtClass}">${sign}${fmt(Math.abs(t.amount))}</div>
+      ${!compact ? `
+      <div class="tx-actions">
+        <button class="tx-btn" onclick="event.stopPropagation();editTx('${t.id}')">✎</button>
+        <button class="tx-btn del" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>
+      </div>` : ''}
+    </div>`;
+}
+
+// ── LIST VIEWS ──
+function renderList(which) {
+  let filtered = txs.filter(inYear).filter(isOwnerTx);
+  if(which === 'entrate') filtered = filtered.filter(t => t.type === 'entrata');
+  if(which === 'uscite')  filtered = filtered.filter(t => t.type === 'uscita');
+  if(which === 'tutti') {
+    if(currentFilter !== 'all') filtered = filtered.filter(t => t.type === currentFilter);
+    if(searchQuery) filtered = filtered.filter(t =>
+      (t.desc||'').toLowerCase().includes(searchQuery) ||
+      (t.party||'').toLowerCase().includes(searchQuery) ||
+      (t.notes||'').toLowerCase().includes(searchQuery)
+    );
+  }
+  filtered.sort((a,b) => b.date.localeCompare(a.date));
+
+  const listEl = document.getElementById('list-' + which);
+  if(!filtered.length) {
+    listEl.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Nessun movimento</h3><p>Clicca "+ Aggiungi" per iniziare</p></div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(t => txRow(t, false)).join('');
+
+  // Filter chips for entrate/uscite
+  if(which !== 'tutti') {
+    const cats = [...new Set(filtered.map(t=>t.cat))];
+    const fEl = document.getElementById('filter-' + which);
+    fEl.innerHTML = `<button class="filter-chip active" onclick="filterListByCat('${which}',null,this)">Tutti</button>` +
+      cats.map(c => `<button class="filter-chip" onclick="filterListByCat('${which}','${c}',this)">${CATEGORIES[c]?.label||c}</button>`).join('');
+  }
+}
+
+function filterListByCat(which, cat, btn) {
+  document.querySelectorAll(`#filter-${which} .filter-chip`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  let filtered = txs.filter(inYear);
+  if(which === 'entrate') filtered = filtered.filter(t => t.type === 'entrata');
+  if(which === 'uscite')  filtered = filtered.filter(t => t.type === 'uscita');
+  if(cat) filtered = filtered.filter(t => t.cat === cat);
+  filtered.sort((a,b) => b.date.localeCompare(a.date));
+  const listEl = document.getElementById('list-' + which);
+  listEl.innerHTML = filtered.length ? filtered.map(t => txRow(t, false)).join('') :
+    `<div class="empty-state"><p>Nessun movimento in questa categoria</p></div>`;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('#filter-tutti .filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList('tutti');
+}
+function searchFilter(q) { searchQuery = q.toLowerCase(); renderList('tutti'); }
+
+// ── MODAL ──
+function openModal(type) {
+  editingId = null;
+  currentType = type;
+  document.getElementById('modal-tx-title').textContent = type === 'entrata' ? 'Nuova entrata' : 'Nuova uscita';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('f-cat').value = type === 'entrata' ? 'affitti' : 'manutenzione';
+  document.getElementById('f-method').value = 'bonifico';
+  document.getElementById('f-party').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-id').value = '';
+  document.getElementById('file-preview-area').innerHTML = '';
+  selectedFile = null; selectedFileData = null;
+  updateTypeToggle(type);
+  document.getElementById('modal-tx').classList.add('open');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function setType(t) { currentType = t; updateTypeToggle(t); }
+function updateTypeToggle(t) {
+  document.getElementById('btn-entrata').className = t==='entrata' ? 'active-in' : '';
+  document.getElementById('btn-uscita').className  = t==='uscita'  ? 'active-out' : '';
+  document.getElementById('f-cat').value = t === 'entrata' ? 'affitti' : 'manutenzione';
+}
+
+// ── FILE ──
+function onFileSelect(input) {
+  const file = input.files[0];
+  if(!file) return;
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    selectedFileData = e.target.result;
+    const isImg = file.type.startsWith('image/');
+    document.getElementById('file-preview-area').innerHTML = `
+      <div class="file-preview">
+        ${isImg ? `<img src="${selectedFileData}" alt="">` : '<span style="font-size:24px">📄</span>'}
+        <span class="file-preview-name">${file.name} (${(file.size/1024).toFixed(0)} KB)</span>
+        <button class="file-preview-remove" onclick="removeFile()">✕</button>
+      </div>`;
+  };
+  reader.readAsDataURL(file);
+}
+function removeFile() {
+  selectedFile = null; selectedFileData = null;
+  document.getElementById('file-preview-area').innerHTML = '';
+  document.getElementById('f-file').value = '';
+}
+
+// ── SAVE TX ──
+function saveTx() {
+  const desc = document.getElementById('f-desc').value.trim();
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  const date = document.getElementById('f-date').value;
+  if(!desc) { showToast('Inserisci una descrizione'); return; }
+  if(!amount || amount <= 0) { showToast('Inserisci un importo valido'); return; }
+  if(!date) { showToast('Inserisci la data'); return; }
+
+  const id = editingId || uid();
+  const tx = {
+    id, type: currentType,
+    desc, amount, date,
+    cat: document.getElementById('f-cat').value,
+    method: document.getElementById('f-method').value,
+    party: document.getElementById('f-party').value.trim(),
+    notes: document.getElementById('f-notes').value.trim(),
+    fileData: selectedFileData || (editingId ? (txs.find(t=>t.id===editingId)||{}).fileData : null),
+    fileName: selectedFile ? selectedFile.name : (editingId ? (txs.find(t=>t.id===editingId)||{}).fileName : null),
+  };
+
+  if(editingId) {
+    const idx = txs.findIndex(t => t.id === editingId);
+    if(idx !== -1) txs[idx] = tx;
+  } else {
+    txs.push(tx);
+  }
+  save();
+  closeModal('modal-tx');
+  showToast(editingId ? 'Movimento aggiornato ✓' : 'Movimento salvato ✓');
+  const av = document.querySelector('.view.active');
+  if(av) navigate(av.id.replace('view-',''));
+}
+
+// ── EDIT / DELETE ──
+function editTx(id) {
+  const t = txs.find(x => x.id === id);
+  if(!t) return;
+  editingId = id;
+  currentType = t.type;
+  document.getElementById('modal-tx-title').textContent = 'Modifica movimento';
+  document.getElementById('f-desc').value = t.desc;
+  document.getElementById('f-amount').value = t.amount;
+  document.getElementById('f-date').value = t.date;
+  document.getElementById('f-cat').value = t.cat;
+  document.getElementById('f-method').value = t.method;
+  document.getElementById('f-party').value = t.party || '';
+  document.getElementById('f-notes').value = t.notes || '';
+  document.getElementById('f-id').value = id;
+  selectedFileData = t.fileData || null;
+  updateTypeToggle(t.type);
+  if(t.fileData) {
+    document.getElementById('file-preview-area').innerHTML = `
+      <div class="file-preview">
+        ${t.fileData.startsWith('data:image') ? `<img src="${t.fileData}" alt="">` : '<span style="font-size:24px">📄</span>'}
+        <span class="file-preview-name">${t.fileName || 'Allegato'}</span>
+        <button class="file-preview-remove" onclick="removeFile()">✕</button>
+      </div>`;
+  } else {
+    document.getElementById('file-preview-area').innerHTML = '';
+  }
+  document.getElementById('modal-tx').classList.add('open');
+}
+
+function deleteTx(id) {
+  if(!confirm('Eliminare questo movimento?')) return;
+  txs = txs.filter(t => t.id !== id);
+  save();
+  showToast('Eliminato');
+  const av = document.querySelector('.view.active');
+  if(av) navigate(av.id.replace('view-',''));
+  closeDetail();
+}
+
+// ── DETAIL PANEL ──
+function showDetail(id) {
+  const t = txs.find(x => x.id === id);
+  if(!t) return;
+  const cat = CATEGORIES[t.cat] || CATEGORIES.altro;
+  const sign = t.type === 'entrata' ? '+' : '-';
+  document.getElementById('dp-title').textContent = t.desc;
+  document.getElementById('dp-body').innerHTML = `
+    <div class="detail-row"><span class="detail-key">Tipo</span><span class="detail-val"><span class="cat-badge ${t.type==='entrata'?'cat-affitti':'cat-manutenzione'}">${t.type==='entrata'?'↑ Entrata':'↓ Uscita'}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Importo</span><span class="detail-val" style="color:${t.type==='entrata'?'var(--green)':'var(--red)'};font-family:'DM Mono',monospace;">${sign}${fmt(Math.abs(t.amount))}</span></div>
+    <div class="detail-row"><span class="detail-key">Data</span><span class="detail-val">${fmtDate(t.date)}</span></div>
+    <div class="detail-row"><span class="detail-key">Categoria</span><span class="detail-val"><span class="cat-badge ${cat.cls}">${cat.label}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Metodo</span><span class="detail-val">${t.method||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Controparte</span><span class="detail-val">${t.party||'—'}</span></div>
+    ${t.notes ? `<div class="detail-row"><span class="detail-key">Note</span><span class="detail-val" style="max-width:200px;word-break:break-word;">${t.notes}</span></div>` : ''}
+    ${t.fileData ? `<img class="detail-img" src="${t.fileData}" alt="Allegato" onclick="window.open('${t.fileData}')">` : ''}
+    <div style="display:flex;gap:8px;margin-top:20px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="editTx('${id}');closeDetail()">✎ Modifica</button>
+      <button class="btn btn-sm" style="flex:1;background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="deleteTx('${id}')">✕ Elimina</button>
+    </div>
+  `;
+  document.getElementById('detail-panel').classList.add('open');
+}
+function closeDetail() { document.getElementById('detail-panel').classList.remove('open'); }
+
+// ── BILANCIO ──
+function renderBilancio() {
+  document.getElementById('bilancio-subtitle').textContent = 'Anno ' + currentYear;
+  const yearTxs = txs.filter(inYear).filter(isOwnerTx);
+  const entrate = yearTxs.filter(t => t.type === 'entrata');
+  const uscite  = yearTxs.filter(t => t.type === 'uscita');
+
+  // Entrate groups
+  const eAffitti   = entrate.filter(t=>t.cat==='affitti').reduce((s,t)=>s+(+t.amount),0);
+  const eAltro     = entrate.filter(t=>t.cat!=='affitti').reduce((s,t)=>s+(+t.amount),0);
+  const totIn      = eAffitti + eAltro;
+
+  // Uscite groups
+  const uManutenzione   = uscite.filter(t=>t.cat==='manutenzione').reduce((s,t)=>s+(+t.amount),0);
+  const uCondominio     = uscite.filter(t=>t.cat==='condominio').reduce((s,t)=>s+(+t.amount),0);
+  const uTasse          = uscite.filter(t=>t.cat==='tasse').reduce((s,t)=>s+(+t.amount),0);
+  const uTasseFineAnno  = uscite.filter(t=>t.cat==='tasse_fine_anno').reduce((s,t)=>s+(+t.amount),0);
+  const uTariCond       = uscite.filter(t=>t.cat==='tari_cond').reduce((s,t)=>s+(+t.amount),0);
+  const uAcquaCond      = uscite.filter(t=>t.cat==='acqua_cond').reduce((s,t)=>s+(+t.amount),0);
+  const uRiscCond       = uscite.filter(t=>t.cat==='riscaldamento_cond').reduce((s,t)=>s+(+t.amount),0);
+  const uUtenze         = uscite.filter(t=>t.cat==='utenze').reduce((s,t)=>s+(+t.amount),0);
+  const uAltro          = uscite.filter(t=>!['manutenzione','condominio','tasse','tasse_fine_anno','tari_cond','acqua_cond','riscaldamento_cond','utenze'].includes(t.cat)).reduce((s,t)=>s+(+t.amount),0);
+  const totOut          = uscite.reduce((s,t)=>s+(+t.amount),0);
+  const saldo           = totIn - totOut;
+
+  const bilRow = (label, val, muted) => val===0 && muted ? '' : `
+    <div class="bilancio-row">
+      <span class="bilancio-row-label">${label}</span>
+      <span class="bilancio-amount" style="color:${muted?'var(--text-3)':'inherit'}">${fmt(val)}</span>
+    </div>`;
+
+  const el = document.getElementById('bilancio-content');
+  el.innerHTML = `
+    <div class="bilancio-grid">
+      <div class="bilancio-col">
+        <div class="bilancio-col-header entrate">↑ Entrate</div>
+        ${bilRow('Canoni di locazione', eAffitti)}
+        ${eAltro ? bilRow('Altre entrate', eAltro) : ''}
+        <div class="bilancio-row subtotal">
+          <span class="bilancio-row-label">Totale entrate</span>
+          <span class="bilancio-amount" style="color:var(--green)">${fmt(totIn)}</span>
+        </div>
+      </div>
+
+      <div class="bilancio-col">
+        <div class="bilancio-col-header uscite">↓ Uscite</div>
+        ${bilRow('Manutenzione straordinaria', uManutenzione, !uManutenzione)}
+        ${bilRow('Quote condominiali', uCondominio, !uCondominio)}
+        ${bilRow('IMU / Tasse acconto', uTasse, !uTasse)}
+        ${bilRow('Tasse fine anno (saldo)', uTasseFineAnno, !uTasseFineAnno)}
+        ${bilRow('TARI (a carico condomini)', uTariCond, !uTariCond)}
+        ${bilRow('Acqua conguaglio (cond.)', uAcquaCond, !uAcquaCond)}
+        ${bilRow('Riscaldamento (cond.)', uRiscCond, !uRiscCond)}
+        ${bilRow('Utenze', uUtenze, !uUtenze)}
+        ${uAltro ? bilRow('Altro', uAltro) : ''}
+        <div class="bilancio-row subtotal">
+          <span class="bilancio-row-label">Totale uscite</span>
+          <span class="bilancio-amount" style="color:var(--red)">${fmt(totOut)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bilancio-col" style="border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);">
+      <div class="bilancio-row" style="padding:14px 20px;">
+        <span style="font-size:14px;font-weight:500;">Totale entrate</span>
+        <span class="bilancio-amount" style="color:var(--green);font-size:15px;">${fmt(totIn)}</span>
+      </div>
+      <div class="bilancio-row" style="padding:14px 20px;">
+        <span style="font-size:14px;font-weight:500;">Totale uscite</span>
+        <span class="bilancio-amount" style="color:var(--red);font-size:15px;">− ${fmt(totOut)}</span>
+      </div>
+      <div class="bilancio-row total-final" style="padding:16px 20px;border-radius:0 0 var(--radius) var(--radius);">
+        <span>Saldo netto ${currentYear}</span>
+        <span class="bilancio-amount" style="font-size:18px;">${saldo>=0?'+':''}${fmt(saldo)}</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="card">
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:14px;">Dettaglio mensile</div>
+        <table class="summary-table" id="bilancio-monthly-table"></table>
+      </div>
+    </div>
+  `;
+
+  // Monthly detail
+  const monthly = {};
+  yearTxs.forEach(t => {
+    const m = t.date.slice(0,7);
+    if(!monthly[m]) monthly[m] = {in:0, out:0};
+    if(t.type==='entrata') monthly[m].in += +t.amount;
+    else monthly[m].out += +t.amount;
+  });
+  const tbl = document.getElementById('bilancio-monthly-table');
+  if(!Object.keys(monthly).length) {
+    tbl.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:20px">Nessun dato per l\'anno selezionato</td></tr>';
+  } else {
+    tbl.innerHTML = `<thead><tr><th>Mese</th><th>Entrate</th><th>Uscite</th><th>Saldo</th></tr></thead><tbody>` +
+      Object.entries(monthly).sort().map(([m]) => {
+        const mn = new Date(m+'-01').toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+        const s = monthly[m].in - monthly[m].out;
+        return `<tr>
+          <td style="font-weight:500">${mn}</td>
+          <td class="mono" style="color:var(--green)">${fmt(monthly[m].in)}</td>
+          <td class="mono" style="color:var(--red)">${fmt(monthly[m].out)}</td>
+          <td class="mono" style="color:${s>=0?'var(--green)':'var(--red)'};font-weight:500">${s>=0?'+':''}${fmt(s)}</td>
+        </tr>`;
+      }).join('') + `</tbody>`;
+  }
+}
+
+// ── ONERI CONDOMINI ──
+function renderOneri() {
+  const yearTxs = txs.filter(inYear);
+  const uscite  = yearTxs.filter(t => t.type === 'uscita');
+
+  const ONERI_CATS = [
+    { key: 'tari_cond',          label: 'TARI',                icon: '🗑',  desc: 'Tassa rifiuti a carico degli inquilini' },
+    { key: 'acqua_cond',         label: 'Acqua conguaglio',    icon: '💧', desc: 'Conguaglio idrico fine anno' },
+    { key: 'riscaldamento_cond', label: 'Riscaldamento',       icon: '🔥', desc: 'Quota riscaldamento centralizzato' },
+  ];
+
+  const el = document.getElementById('oneri-content');
+
+  let totalOneri = 0;
+  let html = '';
+
+  ONERI_CATS.forEach(cat => {
+    const items = uscite.filter(t => t.cat === cat.key);
+    const total = items.reduce((s,t) => s+(+t.amount), 0);
+    totalOneri += total;
+
+    html += `
+      <div class="cond-section">
+        <div class="cond-header">${cat.icon} ${cat.label} — ${cat.desc}</div>
+        ${items.length ? items.map(t => `
+          <div class="cond-row">
+            <div>
+              <div style="font-weight:500;font-size:13px">${t.desc}</div>
+              <div style="font-size:11px;color:var(--text-3)">${fmtDate(t.date)}${t.party?' · '+t.party:''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">${fmt(t.amount)}</span>
+              <button class="${t.condPaid?'paid-tag':'unpaid-tag'}" onclick="toggleCondPaid('${t.id}')">
+                ${t.condPaid ? '✓ Riscosso' : '⏳ Da riscuotere'}
+              </button>
+            </div>
+          </div>`).join('') :
+          `<div style="padding:20px;text-align:center;font-size:13px;color:var(--text-3)">
+            Nessuna voce registrata — <button class="btn btn-ghost btn-sm" style="display:inline-flex" onclick="openModal('uscita');setType('uscita');setTimeout(()=>document.getElementById('f-cat').value='${cat.key}',50)">+ Aggiungi</button>
+          </div>`
+        }
+        ${items.length ? `<div class="cond-row-total">
+          <span>Totale ${cat.label}</span>
+          <span style="font-family:'DM Mono',monospace">${fmt(total)}</span>
+        </div>` : ''}
+      </div>`;
+  });
+
+  // Tasse fine anno
+  const tasseFineAnno = uscite.filter(t => t.cat === 'tasse_fine_anno');
+  const totTasse = tasseFineAnno.reduce((s,t) => s+(+t.amount), 0);
+  html += `
+    <div class="cond-section">
+      <div class="cond-header" style="background:var(--red-bg);color:var(--red);">🏛 Tasse fine anno — IMU saldo, cedolare secca, F24</div>
+      ${tasseFineAnno.length ? tasseFineAnno.map(t => `
+        <div class="cond-row">
+          <div>
+            <div style="font-weight:500;font-size:13px">${t.desc}</div>
+            <div style="font-size:11px;color:var(--text-3)">${fmtDate(t.date)}${t.party?' · '+t.party:''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--red)">${fmt(t.amount)}</span>
+            <button class="tx-btn del" onclick="deleteTx('${t.id}')" style="opacity:0.7">✕</button>
+          </div>
+        </div>`).join('') :
+        `<div style="padding:20px;text-align:center;font-size:13px;color:var(--text-3)">
+          Nessuna spesa registrata — <button class="btn btn-ghost btn-sm" style="display:inline-flex" onclick="openModal('uscita');setType('uscita');setTimeout(()=>document.getElementById('f-cat').value='tasse_fine_anno',50)">+ Aggiungi</button>
+        </div>`
+      }
+      ${tasseFineAnno.length ? `<div class="cond-row-total" style="background:var(--red-bg)">
+        <span>Totale tasse fine anno</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--red)">${fmt(totTasse)}</span>
+      </div>` : ''}
+    </div>`;
+
+  // Riepilogo totale oneri
+  html += `
+    <div class="card" style="margin-top:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE ONERI A CARICO CONDOMINI</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--amber)">${fmt(totalOneri)}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-3);max-width:220px;text-align:right">TARI + Acqua conguaglio + Riscaldamento</div>
+      </div>
+    </div>`;
+
+  el.innerHTML = html;
+}
+
+function toggleCondPaid(id) {
+  const t = txs.find(x => x.id === id);
+  if(t) { t.condPaid = !t.condPaid; save(); renderOneri(); }
+}
+
+// ── FISCAL REGIME ──
+const REGIME_INFO = {
+  cedolare21: '✓ Cedolare secca 21% — canone libero (contratto 4+4 o transitorio). Sostituisce IRPEF, addizionali comunali e regionali, imposta di registro. Non si deducono le spese ma l\'aliquota flat è spesso più conveniente.',
+  cedolare10: '✓ Cedolare secca 10% — canone concordato (contratto 3+2 in comuni ad alta tensione abitativa, come Roma). Aliquota agevolata, stessi vantaggi della cedolare 21%. Verifica che il canone rispetti le tabelle territoriali.',
+  irpef: '⚠ Regime IRPEF ordinario — il reddito fondiario (canone × 95%) si somma agli altri redditi e viene tassato a scaglioni progressivi (23% fino a €28.000, 35% fino a €50.000, 43% oltre). Si paga anche l\'addizionale regionale (~1,73% Lazio) e comunale. Deducibili interessi mutuo, spese manutenzione (30% forfait).',
+};
+
+const IRPEF_SCAGLIONI = [
+  { fino: 28000, aliq: 0.23 },
+  { fino: 50000, aliq: 0.35 },
+  { fino: Infinity, aliq: 0.43 },
+];
+
+function calcolaIRPEF(imponibile) {
+  let imposta = 0, prev = 0;
+  for(const s of IRPEF_SCAGLIONI) {
+    if(imponibile <= prev) break;
+    const base = Math.min(imponibile, s.fino) - prev;
+    imposta += base * s.aliq;
+    prev = s.fino;
+  }
+  return imposta;
+}
+
+function setRegime(r) {
+  fiscalRegime = r;
+  document.querySelectorAll('.regime-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + r).classList.add('active');
+  const info = document.getElementById('regime-info');
+  if(info) info.textContent = REGIME_INFO[r];
+  renderReport();
+}
+
+// ── REPORT ──
+function renderReport() {
+  // init regime info text on first load
+  const info = document.getElementById('regime-info');
+  if(info && !info.textContent) info.textContent = REGIME_INFO[fiscalRegime];
+
+  const yearTxs = txs.filter(inYear).filter(isOwnerTx);
+  const entrate = yearTxs.filter(t => t.type === 'entrata');
+  const uscite  = yearTxs.filter(t => t.type === 'uscita');
+  const totIn   = entrate.reduce((s,t)=>s+(+t.amount),0);
+  const totOut  = uscite.reduce((s,t)=>s+(+t.amount),0);
+  const saldo   = totIn - totOut;
+
+  // Fiscal calc
+  const canoni       = entrate.filter(t=>t.cat==='affitti').reduce((s,t)=>s+(+t.amount),0);
+  const manutenzione = uscite.filter(t=>t.cat==='manutenzione').reduce((s,t)=>s+(+t.amount),0);
+  const tasse        = uscite.filter(t=>t.cat==='tasse').reduce((s,t)=>s+(+t.amount),0);
+  const tasseFine    = uscite.filter(t=>t.cat==='tasse_fine_anno').reduce((s,t)=>s+(+t.amount),0);
+
+  let imponibile, impostaStimata, taxLabel, taxRows = '';
+
+  if(fiscalRegime === 'cedolare21') {
+    imponibile = canoni;
+    impostaStimata = canoni * 0.21;
+    taxLabel = 'Cedolare secca 21%';
+    taxRows = `
+      <div class="tax-row"><span>Canoni percepiti (base imponibile)</span><span style="font-family:'DM Mono',monospace">${fmt(canoni)}</span></div>
+      <div class="tax-row"><span>Aliquota cedolare</span><span>21%</span></div>
+      <div class="tax-row-total"><span>Imposta stimata</span><span style="font-family:'DM Mono',monospace">${fmt(impostaStimata)}</span></div>`;
+  } else if(fiscalRegime === 'cedolare10') {
+    imponibile = canoni;
+    impostaStimata = canoni * 0.10;
+    taxLabel = 'Cedolare secca 10%';
+    taxRows = `
+      <div class="tax-row"><span>Canoni percepiti (base imponibile)</span><span style="font-family:'DM Mono',monospace">${fmt(canoni)}</span></div>
+      <div class="tax-row"><span>Aliquota cedolare concordato</span><span>10%</span></div>
+      <div class="tax-row-total"><span>Imposta stimata</span><span style="font-family:'DM Mono',monospace">${fmt(impostaStimata)}</span></div>`;
+  } else {
+    // IRPEF ordinario
+    const deduzForfait = manutenzione * 0.30;
+    imponibile = Math.max(0, canoni * 0.95 - deduzForfait);
+    const irpef = calcolaIRPEF(imponibile);
+    const addReg = imponibile * 0.0173; // Lazio ~1.73%
+    const addCom = imponibile * 0.008;  // Roma ~0.8% (indicativo)
+    impostaStimata = irpef + addReg + addCom;
+    taxLabel = 'IRPEF ordinaria';
+    taxRows = `
+      <div class="tax-row"><span>Canoni percepiti</span><span style="font-family:'DM Mono',monospace">${fmt(canoni)}</span></div>
+      <div class="tax-row"><span>Riduzione forfettaria 5%</span><span style="font-family:'DM Mono',monospace">− ${fmt(canoni * 0.05)}</span></div>
+      <div class="tax-row"><span>Deduzioni manutenzione (30% forfait)</span><span style="font-family:'DM Mono',monospace">− ${fmt(deduzForfait)}</span></div>
+      <div class="tax-row" style="font-weight:500"><span>Reddito imponibile</span><span style="font-family:'DM Mono',monospace">${fmt(imponibile)}</span></div>
+      <div class="tax-row"><span>IRPEF (scaglioni progressivi)</span><span style="font-family:'DM Mono',monospace">${fmt(irpef)}</span></div>
+      <div class="tax-row"><span>Add. regionale Lazio (~1,73%)</span><span style="font-family:'DM Mono',monospace">${fmt(addReg)}</span></div>
+      <div class="tax-row"><span>Add. comunale Roma (~0,8% — indicativo)</span><span style="font-family:'DM Mono',monospace">${fmt(addCom)}</span></div>
+      <div class="tax-row-total"><span>Carico fiscale totale stimato</span><span style="font-family:'DM Mono',monospace">${fmt(impostaStimata)}</span></div>`;
+  }
+
+  // Confronto cedolare vs IRPEF
+  const ced21 = canoni * 0.21;
+  const ced10 = canoni * 0.10;
+  const irpefTot = (() => {
+    const imp = Math.max(0, canoni * 0.95 - manutenzione * 0.30);
+    return calcolaIRPEF(imp) + imp * 0.0173 + imp * 0.008;
+  })();
+  const bestRegime = Math.min(ced21, ced10, irpefTot);
+
+  // Group uscite by cat
+  const outByCat = {};
+  uscite.forEach(t => { outByCat[t.cat] = (outByCat[t.cat]||[]).concat(t); });
+
+  // Monthly
+  const monthly = {};
+  yearTxs.forEach(t => {
+    const m = t.date.slice(0,7);
+    if(!monthly[m]) monthly[m] = { in:0, out:0 };
+    if(t.type==='entrata') monthly[m].in += +t.amount;
+    else monthly[m].out += +t.amount;
+  });
+
+  const el = document.getElementById('report-content');
+  el.innerHTML = `
+    <div class="card report-section" style="margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+        <div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE ENTRATE</div>
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--green);">${fmt(totIn)}</div></div>
+        <div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE USCITE</div>
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:var(--red);">${fmt(totOut)}</div></div>
+        <div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">SALDO NETTO</div>
+          <div style="font-family:'DM Mono',monospace;font-size:20px;color:${saldo>=0?'var(--green)':'var(--red)'};">${fmt(saldo)}</div></div>
+      </div>
+    </div>
+
+    <!-- CALCOLATORE IMPOSTA -->
+    <div class="card report-section" style="margin-bottom:16px;">
+      <h3>Stima imposta — ${taxLabel}</h3>
+      <div class="tax-highlight">
+        ${taxRows}
+      </div>
+      <div style="margin-top:16px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;">Confronto regimi</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          ${[
+            {id:'cedolare21', label:'Cedolare 21%', val:ced21},
+            {id:'cedolare10', label:'Cedolare 10%', val:ced10},
+            {id:'irpef',      label:'IRPEF ord.',   val:irpefTot},
+          ].map(r => `
+            <div style="padding:10px 12px;border-radius:var(--radius-sm);border:1.5px solid ${r.id===fiscalRegime?'var(--accent)':r.val===bestRegime?'rgba(45,106,79,0.4)':'var(--border)'};background:${r.id===fiscalRegime?'var(--accent)':r.val===bestRegime?'var(--green-bg)':'var(--bg)'};cursor:pointer;" onclick="setRegime('${r.id}')">
+              <div style="font-size:11px;font-weight:600;color:${r.id===fiscalRegime?'rgba(255,255,255,0.7)':r.val===bestRegime?'var(--green)':'var(--text-3)'};">${r.label}${r.val===bestRegime?' ★':''}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;margin-top:3px;color:${r.id===fiscalRegime?'#fff':r.val===bestRegime?'var(--green)':'var(--text)'}">${fmt(r.val)}</div>
+            </div>`).join('')}
+        </div>
+        ${canoni===0 ? '<p style="font-size:11px;color:var(--text-3);margin-top:8px;">Inserisci i canoni per vedere il confronto.</p>' : ''}
+      </div>
+      <p style="font-size:11px;color:var(--text-3);margin-top:12px;">⚠ Stime indicative basate sui dati inseriti. Consulta il tuo CAF o commercialista per la dichiarazione definitiva. Addizionali regionali/comunali sono indicative per Lazio/Roma.</p>
+    </div>
+
+    <div class="card report-section">
+      <div class="report-section"><h3>Riepilogo mensile ${currentYear}</h3>
+      <table class="summary-table">
+        <thead><tr><th>Mese</th><th>Entrate</th><th>Uscite</th><th>Saldo</th></tr></thead>
+        <tbody>
+          ${Object.keys(monthly).length ? Object.entries(monthly).sort().map(([m])=>{
+            const mn = new Date(m+'-01').toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+            const s = monthly[m].in - monthly[m].out;
+            return `<tr>
+              <td style="font-weight:500">${mn}</td>
+              <td class="mono" style="color:var(--green)">${fmt(monthly[m].in)}</td>
+              <td class="mono" style="color:var(--red)">${fmt(monthly[m].out)}</td>
+              <td class="mono" style="color:${s>=0?'var(--green)':'var(--red)'}">${fmt(s)}</td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:20px">Nessun dato per l\'anno selezionato</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card report-section">
+      <div class="report-section"><h3>Uscite per categoria</h3>
+      <table class="summary-table">
+        <thead><tr><th>Categoria</th><th>N.</th><th>Totale</th></tr></thead>
+        <tbody>
+          ${Object.keys(outByCat).length ? Object.entries(outByCat).map(([cat,items])=>{
+            const tot = items.reduce((s,t)=>s+(+t.amount),0);
+            const c = CATEGORIES[cat]||CATEGORIES.altro;
+            return `<tr><td><span class="cat-badge ${c.cls}">${c.label}</span></td>
+              <td>${items.length}</td>
+              <td class="mono">${fmt(tot)}</td></tr>`;
+          }).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--text-3);padding:20px">Nessuna uscita registrata</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card report-section">
+      <div class="report-section"><h3>Quadro riepilogativo 730 — Redditi da locazione</h3>
+      <table class="summary-table">
+        <thead><tr><th>Voce</th><th>Importo</th></tr></thead>
+        <tbody>
+          <tr><td>Canoni di locazione percepiti (Quadro B)</td><td class="mono">${fmt(canoni)}</td></tr>
+          <tr><td>IMU / Tasse acconto versate</td><td class="mono">${fmt(tasse)}</td></tr>
+          <tr><td>Tasse fine anno versate (saldo IMU, F24)</td><td class="mono">${fmt(tasseFine)}</td></tr>
+          <tr><td>Regime applicato</td><td class="mono">${taxLabel}</td></tr>
+          <tr class="total-row"><td>Imposta stimata da versare</td><td class="mono" style="color:var(--amber)">${fmt(impostaStimata)}</td></tr>
+          <tr><td style="color:var(--text-3);font-size:12px">Già versato (acconto + saldo)</td><td class="mono" style="color:var(--text-3);font-size:12px">− ${fmt(tasse + tasseFine)}</td></tr>
+          <tr class="total-row"><td>Residuo stimato da versare</td><td class="mono" style="color:${impostaStimata-(tasse+tasseFine)>0?'var(--red)':'var(--green)'};">${fmt(Math.max(0,impostaStimata-(tasse+tasseFine)))}</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:11px;color:var(--text-3);margin-top:10px;">⚠ Stime indicative. Consultare il proprio CAF o commercialista per la compilazione definitiva.</p>
+      </div>
+    </div>
+  `;
+}
+
+// ── SCADENZE ──
+function renderScadenze() {
+  const el = document.getElementById('scadenze-list');
+  if(!deadlines.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><h3>Nessuna scadenza</h3><p>Aggiungi IMU, rate, rinnovi contratto...</p></div>';
+    return;
+  }
+  const today = new Date().toISOString().split('T')[0];
+  const sorted = [...deadlines].sort((a,b)=>a.date.localeCompare(b.date));
+  el.innerHTML = `<div class="tx-list">${sorted.map(d => {
+    const isPast = d.date < today;
+    const isSoon = !isPast && d.date <= new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+    return `<div class="tx-item">
+      <div class="tx-dot" style="background:${isPast?'var(--red)':isSoon?'var(--amber)':'var(--green)'}"></div>
+      <div class="tx-info">
+        <div class="tx-desc">${d.desc}</div>
+        <div class="tx-meta">${fmtDate(d.date)} ${d.notes?'· '+d.notes:''}</div>
+      </div>
+      <div class="tx-amount" style="color:${isPast?'var(--red)':isSoon?'var(--amber)':'var(--text-2)'}">
+        ${d.amount ? fmt(d.amount) : '—'}</div>
+      <div class="tx-actions">
+        <button class="tx-btn del" onclick="deleteDeadline('${d.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function openDeadlineModal() {
+  document.getElementById('d-desc').value = '';
+  document.getElementById('d-date').value = '';
+  document.getElementById('d-amount').value = '';
+  document.getElementById('d-notes').value = '';
+  document.getElementById('modal-deadline').classList.add('open');
+}
+
+function saveDeadline() {
+  const desc = document.getElementById('d-desc').value.trim();
+  const date = document.getElementById('d-date').value;
+  if(!desc || !date) { showToast('Inserisci descrizione e data'); return; }
+  deadlines.push({ id:uid(), desc, date,
+    amount: parseFloat(document.getElementById('d-amount').value)||0,
+    notes: document.getElementById('d-notes').value.trim()
+  });
+  save();
+  closeModal('modal-deadline');
+  showToast('Scadenza salvata ✓');
+  renderScadenze();
+}
+
+function deleteDeadline(id) {
+  deadlines = deadlines.filter(d => d.id !== id);
+  save(); renderScadenze();
+}
+
+// ── EXPORT CSV ──
+function exportCSV() {
+  const yearTxs = txs.filter(inYear).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!yearTxs.length) { showToast('Nessun dato da esportare'); return; }
+  const header = 'Data,Tipo,Descrizione,Importo,Categoria,Metodo,Controparte,Note';
+  const rows = yearTxs.map(t =>
+    [t.date, t.type, `"${t.desc}"`, t.amount,
+     CATEGORIES[t.cat]?.label||t.cat, t.method,
+     `"${t.party||''}"`, `"${(t.notes||'').replace(/"/g,'""')}"`].join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `condominio_${currentYear}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV esportato ✓');
+}
+
+// ── PRINT ──
+function printReport() { window.print(); }
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── CLICK OUTSIDE DETAIL ──
+document.addEventListener('click', e => {
+  const panel = document.getElementById('detail-panel');
+  if(panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('.tx-item')) {
+    closeDetail();
+  }
+});
+
+// ── INIT ──
+load();
+renderDashboard();
+</script>
+</body>
+</html>
