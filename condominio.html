@@ -343,7 +343,7 @@ textarea{resize:vertical;min-height:70px;}
       <div class="home-subtitle" id="home-drive-label">Dati salvati in locale</div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
-      <div class="drive-status" onclick="driveAction()" id="home-drive-btn" style="margin:0;">
+      <div class="drive-status" onclick="driveAction(this)" id="home-drive-btn" style="margin:0;">
         <div class="drive-dot" id="home-drive-dot"></div>
         <div class="drive-label" id="home-drive-status"><strong>Google Drive</strong>Non connesso</div>
       </div>
@@ -386,7 +386,7 @@ textarea{resize:vertical;min-height:70px;}
       </div>
     </nav>
     <div class="sidebar-footer">
-      <div class="drive-status" onclick="driveAction()" id="drive-status-btn">
+      <div class="drive-status" onclick="driveAction(this)" id="drive-status-btn">
         <div class="drive-dot" id="drive-dot"></div>
         <div class="drive-label" id="drive-label"><strong>Google Drive</strong>Non connesso</div>
       </div>
@@ -3232,21 +3232,27 @@ function setDriveStatus(state,msg){
   ['drive-dot','home-drive-dot'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='drive-dot'+(state?' '+state:''); });
   ['drive-label','home-drive-status'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=`<strong>Google Drive</strong>${msg}`; });
 }
-function driveAction(){
-  if(driveAccessToken) showDriveMenu();
+function driveAction(btn){
+  if(driveAccessToken) showDriveMenu(btn);
   else driveSignIn();
 }
-function showDriveMenu(){
+function showDriveMenu(sourceBtn){
   closeCtxMenu();
-  const btn=document.getElementById('drive-status-btn')||document.getElementById('home-drive-btn');
-  const rect=btn.getBoundingClientRect();
-  const menu=document.createElement('div'); menu.className='ctx-menu'; menu.id='ctx-menu';
-  menu.style.bottom=(window.innerHeight-rect.top+4)+'px'; menu.style.left=rect.left+'px';
+  const btn = sourceBtn || document.getElementById('drive-status-btn') || document.getElementById('home-drive-btn');
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div'); menu.className='ctx-menu'; menu.id='ctx-menu';
+  // Position above or below based on screen position
+  if(rect.top > window.innerHeight/2){
+    menu.style.bottom=(window.innerHeight-rect.top+4)+'px';
+  } else {
+    menu.style.top=(rect.bottom+4)+'px';
+  }
+  menu.style.left=Math.min(rect.left, window.innerWidth-210)+'px';
   menu.innerHTML=`<div style="padding:8px 14px;font-size:11px;color:var(--text-3);border-bottom:1px solid var(--border);">${driveUser||'Account Google'}</div>
     <button class="ctx-item" onclick="closeCtxMenu();driveSaveAll(true)">☁ Salva tutto ora</button>
     <button class="ctx-item" onclick="closeCtxMenu();driveLoadAll(false)">↓ Carica tutto da Drive</button>
     <div class="ctx-sep"></div>
-    <button class="ctx-item danger" onclick="closeCtxMenu();driveSignOut()">✕ Disconnetti</button>`;
+    <button class="ctx-item danger" onclick="closeCtxMenu();driveSignOut()">✕ Disconnetti Drive</button>`;
   document.body.appendChild(menu);
   setTimeout(()=>document.addEventListener('click',closeCtxMenu,{once:true}),50);
 }
