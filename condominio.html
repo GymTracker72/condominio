@@ -630,6 +630,28 @@ textarea{resize:vertical;min-height:70px;}
 </div>
 
 
+<!-- MODAL: Modifica pagante -->
+<div class="modal-overlay" id="modal-edit-pagante">
+  <div class="modal modal-sm" style="width:360px;">
+    <div class="modal-header">
+      <div class="modal-title">Modifica pagante</div>
+      <button class="modal-close" onclick="closeModal('modal-edit-pagante')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="ep-payment-desc"></div>
+    <div class="form-group">
+      <label>Chi ha pagato</label>
+      <input type="text" id="ep-pagante" list="ep-pagante-list" placeholder="Nome pagante" autocomplete="off">
+      <datalist id="ep-pagante-list"></datalist>
+    </div>
+    <input type="hidden" id="ep-debt-id">
+    <input type="hidden" id="ep-payment-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-pagante')">Annulla</button>
+      <button class="btn btn-primary" onclick="savePaymentPagante()">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Voce debitoria -->
 <div class="modal-overlay" id="modal-debt">
   <div class="modal modal-sm">
@@ -1693,6 +1715,7 @@ function renderDebiti(){
           <span style="color:var(--text-3);font-size:11px">${p.method||''}</span>
           ${p.commission>0?`<span style="font-size:11px;color:var(--amber)">+comm.${fmt(p.commission)}</span>`:''}
           <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:4px">${fmt(p.amount)}</span>
+          <button class="tx-btn" onclick="event.stopPropagation();editPaymentPagante('${d.id}','${p.id}')" title="Modifica pagante">👤</button>
           <button class="tx-btn del" onclick="event.stopPropagation();deleteDebtPayment('${d.id}','${p.id}')">✕</button>
         </div>`).join('');
 
@@ -1743,6 +1766,48 @@ function renderDebiti(){
       </div>
     </div>`;
   }).join('');
+}
+
+function editPaymentPagante(debtId, paymentId){
+  const d = debiti.find(x=>x.id===debtId);
+  if(!d) return;
+  const p = d.payments.find(x=>x.id===paymentId);
+  if(!p) return;
+  document.getElementById('ep-debt-id').value = debtId;
+  document.getElementById('ep-payment-id').value = paymentId;
+  document.getElementById('ep-pagante').value = p.pagante||'';
+  document.getElementById('ep-payment-desc').textContent = 
+    fmtDate(p.date) + ' — ' + fmt(p.amount) + (p.notes?' — '+p.notes:'');
+  // Populate datalist
+  const known = ['Audino Giovanni','Audino Giuliano','Capano Aurora','Capponi Roberta','Bracony Marcella'];
+  const allPayers = [...new Set([...known, ...proprietari])];
+  const dl = document.getElementById('ep-pagante-list');
+  if(dl) dl.innerHTML = allPayers.map(p=>`<option value="${p}">`).join('');
+  document.getElementById('modal-edit-pagante').classList.add('open');
+  setTimeout(()=>document.getElementById('ep-pagante').focus(),100);
+}
+
+function savePaymentPagante(){
+  const debtId = document.getElementById('ep-debt-id').value;
+  const paymentId = document.getElementById('ep-payment-id').value;
+  const newPagante = document.getElementById('ep-pagante').value.trim();
+  if(!newPagante){ showToast('Inserisci il nome del pagante'); return; }
+  const d = debiti.find(x=>x.id===debtId);
+  if(!d) return;
+  const p = d.payments.find(x=>x.id===paymentId);
+  if(!p) return;
+  const oldPagante = p.pagante;
+  p.pagante = newPagante;
+  // Auto-add to proprietari if new
+  if(!proprietari.includes(newPagante)) proprietari.push(newPagante);
+  // Update corresponding uscita in txs if exists
+  const txDesc = 'Pagamento: ' + d.desc;
+  const matchTx = txs.find(t=>t.type==='uscita' && t.desc===txDesc && t.date===p.date && Math.abs((+t.amount)-(+p.amount))<0.01 && (t.party===oldPagante||!t.party));
+  if(matchTx) matchTx.party = newPagante;
+  save();
+  closeModal('modal-edit-pagante');
+  showToast('Pagante aggiornato: ' + newPagante);
+  renderDebiti();
 }
 
 function togglePayerGroup(debtId, payerKey){
