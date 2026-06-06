@@ -1248,9 +1248,9 @@ function navigate(view){
   if(view==='uscite')    renderList('uscite');
   if(view==='tutti')     renderList('tutti');
   if(view==='anagrafica'){
-    // Ensure anagrafica is loaded from localStorage if empty
-    if(!anagrafica.length && currentCondoId){
-      try{ anagrafica=JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_anagrafica'))||[]; }catch(e){}
+    // Always reload fresh from localStorage
+    if(currentCondoId){
+      try{ const a=JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_anagrafica')); if(a&&a.length) anagrafica=a; }catch(e){}
     }
     renderAnagrafica();
   }
@@ -3448,6 +3448,9 @@ async function driveLoadData(condoId,silent=false){
       localStorage.setItem('condo_'+condoId+'_debiti',JSON.stringify(debiti));
       localStorage.setItem('condo_'+condoId+'_prop',JSON.stringify(propPayments));
       localStorage.setItem('condo_'+condoId+'_proprietari',JSON.stringify(proprietari));
+      localStorage.setItem('condo_'+condoId+'_anagrafica',JSON.stringify(anagrafica));
+      localStorage.setItem('condo_'+condoId+'_oneri_manual',JSON.stringify(oneriManual));
+      localStorage.setItem('condo_'+condoId+'_oneri_overrides',JSON.stringify(oneriOverrides));
       if(currentCondoId===condoId){ const av=document.querySelector('.view.active'); if(av) navigate(av.id.replace('view-','')); }
       renderCondoGrid();
     }
