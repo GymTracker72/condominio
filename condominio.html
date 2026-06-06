@@ -762,6 +762,7 @@ textarea{resize:vertical;min-height:70px;}
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn btn-ghost" onclick="closeModal('modal-import')">Annulla</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-light);" onclick="doResetImport()" title="Cancella tutte le voci importate e reimporta da zero">🔄 Reimposta tutto</button>
         <button class="btn btn-primary" onclick="doImport()">Importa selezionati</button>
       </div>
     </div>
@@ -2045,6 +2046,25 @@ function toggleImportSel(id, checked){
     }
   });
   document.getElementById('import-residuo-total').textContent = fmt2(tot);
+}
+
+function doResetImport(){
+  if(!confirm('Questo cancellerà tutte le voci debitorie importate dall'estratto conto e le ricrea con i dati corretti.
+
+I pagamenti manuali aggiunti successivamente andranno persi.
+
+Continuare?')) return;
+  // Remove all debiti that came from import
+  const importIds = ESTRATTO_VOCI.map(v=>v.id);
+  debiti = debiti.filter(d=>!importIds.includes(d.importId));
+  // Remove uscite created by import
+  txs = txs.filter(t=>!t.importedFromExtract);
+  // Reset importSelected to all true
+  importSelected = {};
+  ESTRATTO_VOCI.forEach(v=>{ importSelected[v.id]=true; });
+  save();
+  renderImportList();
+  showToast('Voci reimpostate — ora clicca Importa selezionati');
 }
 
 function doImport(){
