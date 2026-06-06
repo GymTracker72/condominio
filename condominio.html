@@ -1934,14 +1934,26 @@ function renderFilePreviews(containerId, filesArr, editable, arrName){
   }
   const el = document.getElementById(containerId);
   if(!el) return;
+  if(!filesArr || !filesArr.length){ el.innerHTML=''; return; }
   el.innerHTML = filesArr.map((f,i)=>{
+    if(!f) return '';
     const isImg = f.type && f.type.startsWith('image/');
-    const key = cacheAndView(f.data);
-    const thumb = isImg
-      ? `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}">`
-      : `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name}">📄</div>`;
     const rmBtn = editable ? `<button class="file-item-remove" onclick="removeFile(${i},'${containerId}')">✕</button>` : '';
-    return `<div class="file-item">${thumb}${rmBtn}</div>`;
+    // Drive file ref (no local data)
+    if(f.driveFileId){
+      const driveUrl = f.url || ('https://drive.google.com/file/d/'+f.driveFileId+'/view');
+      return `<div class="file-item"><div class="file-thumb-pdf" onclick="window.open('${driveUrl}','_blank')" title="${f.name||'Drive'} (su Drive)" style="cursor:pointer;background:var(--green-bg);border-color:var(--green-light)"><span style="font-size:9px;color:var(--green);display:block">☁</span>📄</div>${rmBtn}</div>`;
+    }
+    // Local file with data
+    if(f.data){
+      const key = cacheAndView(f.data);
+      const thumb = isImg
+        ? `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name||''}">` 
+        : `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name||''}">📄</div>`;
+      return `<div class="file-item">${thumb}${rmBtn}</div>`;
+    }
+    // Metadata only (name/type, no data, no drive)
+    return `<div class="file-item"><div class="file-thumb-pdf" style="cursor:default;opacity:.5" title="${f.name||'File'}">📄</div>${rmBtn}</div>`;
   }).join('');
 }
 
