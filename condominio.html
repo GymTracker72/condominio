@@ -343,9 +343,11 @@ textarea{resize:vertical;min-height:70px;}
       <div class="home-subtitle" id="home-drive-label">Dati salvati in locale</div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
-      <div class="drive-status" onclick="driveAction(this)" id="home-drive-btn" style="margin:0;">
+      <div class="drive-status" onclick="driveAction(this)" id="home-drive-btn" 
+           style="margin:0;cursor:pointer;user-select:none;" title="Clicca per gestire Google Drive">
         <div class="drive-dot" id="home-drive-dot"></div>
         <div class="drive-label" id="home-drive-status"><strong>Google Drive</strong>Non connesso</div>
+        <span style="font-size:10px;color:var(--text-3);margin-left:2px;">▾</span>
       </div>
     </div>
   </div>
@@ -1855,7 +1857,11 @@ function renderScadenze(){
 }
 function openDeadlineModal(){ document.getElementById('d-desc').value=''; document.getElementById('d-date').value=''; document.getElementById('d-amount').value=''; document.getElementById('d-notes').value=''; document.getElementById('modal-deadline').classList.add('open'); }
 function saveDeadline(){ const desc=document.getElementById('d-desc').value.trim(); const date=document.getElementById('d-date').value; if(!desc||!date){showToast('Inserisci descrizione e data');return;} deadlines.push({id:uid(),desc,date,amount:parseFloat(document.getElementById('d-amount').value)||0,notes:document.getElementById('d-notes').value.trim()}); save(); closeModal('modal-deadline'); showToast('Scadenza salvata ✓'); renderScadenze(); }
-function deleteDeadline(id){ deadlines=deadlines.filter(d=>d.id!==id); save(); renderScadenze(); }
+function deleteDeadline(id){
+  const d=deadlines.find(x=>x.id===id);
+  if(!confirm('Eliminare la scadenza: '+(d?.desc||'questa scadenza')+'?')) return;
+  deadlines=deadlines.filter(x=>x.id!==id); save(); renderScadenze();
+}
 
 
 // ══ MULTI-FILE HANDLING ══
@@ -1871,17 +1877,14 @@ function onFilesSelect(input){
         renderFilePreviews('file-preview-area', selectedFiles, true);
       });
     } else {
-      // PDF: read as-is but warn if too large
-      const reader = new FileReader();
-      reader.onload = e => {
-        if(e.target.result.length > 2*1024*1024){
-          showToast('PDF troppo grande (max 2MB) — usa una foto');
-          return;
+      readFileForUpload(file, (data, name, type, driveRef)=>{
+        if(driveRef){
+          selectedFiles.push(driveRef);
+        } else if(data) {
+          selectedFiles.push({data, name, type});
         }
-        selectedFiles.push({data:e.target.result, name:file.name, type:file.type});
         renderFilePreviews('file-preview-area', selectedFiles, true);
-      };
-      reader.readAsDataURL(file);
+      });
     }
   });
   input.value='';
@@ -1983,8 +1986,29 @@ function readFileForUpload(file, cb){
   if(file.type.startsWith('image/')){
     compressImage(file, 1200, 0.75, cb);
   } else {
+    // PDF: check size first
+    if(file.size > 5*1024*1024){
+      showToast('PDF troppo grande (max 5MB)');
+      return;
+    }
+    if(!driveAccessToken){
+      showToast('Connetti Google Drive per allegare PDF');
+      return;
+    }
+    // With Drive connected: read and upload immediately
     const reader = new FileReader();
-    reader.onload = e => cb(e.target.result, file.name, file.type);
+    reader.onload = e => {
+      // Upload to Drive right away
+      setDriveStatus('syncing','Caricamento PDF...');
+      uploadFileToDrive(e.target.result, file.name, file.type).then(driveRef=>{
+        if(driveRef){
+          setDriveStatus('connected','PDF caricato su Drive');
+          cb(driveRef.url ? driveRef.url : e.target.result, file.name, file.type, driveRef);
+        } else {
+          showToast('Errore caricamento PDF su Drive');
+        }
+      });
+    };
     reader.readAsDataURL(file);
   }
 }
@@ -1993,8 +2017,13 @@ function onDebtFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - debtPayFiles.length);
   files.forEach(file=>{
     if(debtPayFiles.length >= 3) return;
-    readFileForUpload(file, (data, name, type)=>{
-      debtPayFiles.push({data, name, type, _pending:true});
+    readFileForUpload(file, (data, name, type, driveRef)=>{
+      if(driveRef){
+        // PDF already on Drive
+        debtPayFiles.push(driveRef);
+      } else {
+        debtPayFiles.push({data, name, type, _pending:false});
+      }
       renderFilePreviews('dp-files-preview', debtPayFiles, true, 'debtPayFiles');
     });
   });
@@ -2005,8 +2034,12 @@ function onEpFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - epFiles.length);
   files.forEach(file=>{
     if(epFiles.length >= 3) return;
-    readFileForUpload(file, (data, name, type)=>{
-      epFiles.push({data, name, type, _pending:true});
+    readFileForUpload(file, (data, name, type, driveRef)=>{
+      if(driveRef){
+        epFiles.push(driveRef);
+      } else {
+        epFiles.push({data, name, type, _pending:false});
+      }
       renderFilePreviews('ep-files-preview', epFiles, true, 'epFiles');
     });
   });
@@ -2366,6 +2399,11 @@ function toggleDebtBody(id){
 
 function deleteDebtPayment(debtId, payId){
   const d = debiti.find(x=>x.id===debtId); if(!d) return;
+  const p = d.payments.find(x=>x.id===payId);
+  const desc = p ? (fmtDate(p.date)+' — '+fmt(p.amount)) : 'questo pagamento';
+  if(!confirm('Eliminare il pagamento: '+desc+'?')) return;
+  // Delete file from Drive if exists
+  if(p && p.files) p.files.forEach(f=>{ if(f.driveFileId) deleteFileFromDrive(f.driveFileId); });
   d.payments = d.payments.filter(p=>p.id!==payId);
   d.open = true;
   save(); renderDebiti();
@@ -3231,6 +3269,9 @@ function exportXLSX(){
 function setDriveStatus(state,msg){
   ['drive-dot','home-drive-dot'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='drive-dot'+(state?' '+state:''); });
   ['drive-label','home-drive-status'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=`<strong>Google Drive</strong>${msg}`; });
+  // Update home subtitle
+  const sub=document.getElementById('home-drive-label');
+  if(sub) sub.textContent = state==='connected'?'Dati sincronizzati su Google Drive':state==='syncing'?'Sincronizzazione in corso...':state==='error'?'Errore sincronizzazione Drive':'Dati salvati in locale';
 }
 function driveAction(btn){
   if(driveAccessToken) showDriveMenu(btn);
