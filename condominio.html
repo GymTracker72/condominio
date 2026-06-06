@@ -884,10 +884,15 @@ function renderCondoGrid(){
   if(!grid) return;;
   if(!condos.length){
     grid.innerHTML = `
-      <button class="condo-add-card" onclick="openCondoModal()">
-        <div class="condo-add-icon">+</div>
-        <div class="condo-add-label">Aggiungi condominio</div>
-      </button>`;
+      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--text-3);">
+        <div style="font-size:36px;margin-bottom:12px;">☁</div>
+        <div style="font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Nessun condominio</div>
+        <div style="font-size:13px;margin-bottom:20px;">Se hai già dei dati su Google Drive, connettiti per recuperarli.</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="driveAction()">☁ Connetti Google Drive</button>
+          <button class="btn btn-ghost" onclick="openCondoModal()">+ Nuovo condominio</button>
+        </div>
+      </div>`;
     return;
   }
   grid.innerHTML = condos.map(c=>{
@@ -2280,7 +2285,16 @@ function showDriveMenu(){
   setTimeout(()=>document.addEventListener('click',closeCtxMenu,{once:true}),50);
 }
 function driveSignIn(){
-  if(!window.google){showToast('Libreria Google non ancora caricata, riprova');return;}
+  if(!window.google){
+    setDriveStatus('syncing','Caricamento libreria...');
+    let attempts = 0;
+    const wait = setInterval(()=>{
+      attempts++;
+      if(window.google){ clearInterval(wait); driveSignIn(); }
+      else if(attempts > 20){ clearInterval(wait); setDriveStatus('error','Libreria non caricata'); showToast('Errore: libreria Google non caricata. Controlla la connessione.'); }
+    }, 500);
+    return;
+  }
   setDriveStatus('syncing','Connessione...');
   const client=google.accounts.oauth2.initTokenClient({
     client_id:CLIENT_ID, scope:SCOPES,
