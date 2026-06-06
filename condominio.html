@@ -463,8 +463,11 @@ textarea{resize:vertical;min-height:70px;}
     <!-- ONERI -->
     <div id="view-oneri" class="view">
       <div class="page-header">
-        <div><div class="page-title">Oneri a carico condomini</div><div class="page-subtitle">TARI, acqua conguaglio, riscaldamento</div></div>
-        <button class="btn btn-primary" onclick="openModal('uscita');setType('uscita');document.getElementById('f-cat').value='tari_cond'">+ Registra voce</button>
+        <div><div class="page-title">Oneri a carico condomini</div><div class="page-subtitle">Sincronizzato dai Debiti condominio + voci manuali</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="openCondoModal(currentCondoId)">⚙ Gestisci inquilini</button>
+          <button class="btn btn-primary" onclick="openOneriManualModal()">+ Voce manuale</button>
+        </div>
       </div>
       <div id="oneri-content"></div>
     </div>
@@ -537,6 +540,11 @@ textarea{resize:vertical;min-height:70px;}
       </div>
       <div class="form-group full"><label>Icona</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="icon-picker"></div>
+      </div>
+      <div class="form-group full">
+        <label>Inquilini (nomi separati da virgola)</label>
+        <input type="text" id="c-inquilini" placeholder="Es. Capano Aurora, Capponi Roberta, Bracony Marcella">
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">I pagamenti fatti da questi nomi nei Debiti verranno marcati come "Riscosso" negli Oneri</div>
       </div>
     </div>
     <input type="hidden" id="c-id">
@@ -643,11 +651,88 @@ textarea{resize:vertical;min-height:70px;}
       <input type="text" id="ep-pagante" list="ep-pagante-list" placeholder="Nome pagante" autocomplete="off">
       <datalist id="ep-pagante-list"></datalist>
     </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>Allegati ricevuta/bonifico (fino a 3)</label>
+      <div class="file-zone" onclick="document.getElementById('ep-files').click()">
+        <input type="file" id="ep-files" accept="image/*,.pdf" multiple style="display:none" onchange="onEpFilesSelect(this)">
+        <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF</div>
+      </div>
+      <div class="files-grid" id="ep-files-preview"></div>
+    </div>
     <input type="hidden" id="ep-debt-id">
     <input type="hidden" id="ep-payment-id">
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-edit-pagante')">Annulla</button>
       <button class="btn btn-primary" onclick="savePaymentPagante()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Voce manuale oneri -->
+<div class="modal-overlay" id="modal-oneri-manual">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-oneri-title">Nuova voce manuale</div>
+      <button class="modal-close" onclick="closeModal('modal-oneri-manual')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="om-desc" placeholder="Es. TARI 2025, Acqua conguaglio..."></div>
+      <div class="form-group full"><label>Categoria</label>
+        <select id="om-cat">
+          <option value="tari_cond">🗑 TARI</option>
+          <option value="acqua_cond">💧 Acqua conguaglio</option>
+          <option value="riscaldamento_cond">🔥 Riscaldamento</option>
+          <option value="condominio">🏛 Quote condominiali</option>
+          <option value="altro">📋 Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Importo (€)</label><input type="number" id="om-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Anno</label>
+        <select id="om-year">
+          <option>2026</option><option>2025</option><option>2024</option><option>2023</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Inquilino / Soggetto</label>
+        <input type="text" id="om-inquilino" list="om-inq-list" placeholder="A carico di..." autocomplete="off">
+        <datalist id="om-inq-list"></datalist>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="om-notes" placeholder=""></div>
+    </div>
+    <input type="hidden" id="om-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-oneri-manual')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOneriManual()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Modifica onere (da debiti o manuale) -->
+<div class="modal-overlay" id="modal-oneri-edit">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Modifica stato onere</div>
+      <button class="modal-close" onclick="closeModal('modal-oneri-edit')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="oe-desc"></div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Stato</label>
+        <select id="oe-stato">
+          <option value="da_riscuotere">⏳ Da riscuotere</option>
+          <option value="riscosso">✓ Riscosso</option>
+          <option value="parziale">◑ Parzialmente riscosso</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Inquilino / Soggetto</label>
+        <input type="text" id="oe-inquilino" list="oe-inq-list" placeholder="A carico di..." autocomplete="off">
+        <datalist id="oe-inq-list"></datalist>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="oe-notes" placeholder=""></div>
+    </div>
+    <input type="hidden" id="oe-id">
+    <input type="hidden" id="oe-source"> <!-- 'debt' or 'manual' -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-oneri-edit')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOneriEdit()">Salva</button>
     </div>
   </div>
 </div>
@@ -719,6 +804,15 @@ textarea{resize:vertical;min-height:70px;}
         <div style="font-size:11px;color:var(--amber);margin-top:5px;">La commissione viene registrata come uscita separata e NON scala il debito verso il condominio.</div>
       </div>
     </div>
+      <div class="form-group full">
+        <label>Allegati ricevuta/bonifico (fino a 3)</label>
+        <div class="file-zone" onclick="document.getElementById('dp-files').click()">
+          <input type="file" id="dp-files" accept="image/*,.pdf" multiple style="display:none" onchange="onDebtFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
+        </div>
+        <div class="files-grid" id="dp-files-preview"></div>
+      </div>
+    </input>
     <input type="hidden" id="dp-debt-id">
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-debt-pay')">Annulla</button>
@@ -836,6 +930,8 @@ const REGIME_INFO = {
 // ══ STATE ══
 let condos = [];           // [{id,name,addr,color,icon}]
 let debiti = [];           // [{id,desc,cat,total,year,notes,payments:[]}]
+let oneriManual = [];      // voci manuali oneri (TARI, acqua, ecc.)
+let oneriOverrides = {};   // {debtId_payId: {stato, inquilino, notes}} overrides manuali
 let propPayments = [];     // [{id,name,amount,date,method,notes,files:[]}]
 let proprietari = [];      // [string] nomi auto-popolati
 let currentCondoId = null; // id condominio attivo
@@ -878,6 +974,8 @@ function saveData(){
   localStorage.setItem('condo_'+currentCondoId+'_txs', JSON.stringify(txs));
   localStorage.setItem('condo_'+currentCondoId+'_deadlines', JSON.stringify(deadlines));
   localStorage.setItem('condo_'+currentCondoId+'_debiti', JSON.stringify(debiti));
+  localStorage.setItem('condo_'+currentCondoId+'_oneri_manual', JSON.stringify(oneriManual));
+  localStorage.setItem('condo_'+currentCondoId+'_oneri_overrides', JSON.stringify(oneriOverrides));
   localStorage.setItem('condo_'+currentCondoId+'_prop', JSON.stringify(propPayments));
   localStorage.setItem('condo_'+currentCondoId+'_proprietari', JSON.stringify(proprietari));
   if(driveAccessToken){
@@ -890,6 +988,8 @@ function loadData(condoId){
   try{ txs = JSON.parse(localStorage.getItem('condo_'+condoId+'_txs'))||[]; }catch(e){ txs=[]; }
   try{ deadlines = JSON.parse(localStorage.getItem('condo_'+condoId+'_deadlines'))||[]; }catch(e){ deadlines=[]; }
   try{ debiti = JSON.parse(localStorage.getItem('condo_'+condoId+'_debiti'))||[]; }catch(e){ debiti=[]; }
+  try{ oneriManual = JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_manual'))||[]; }catch(e){ oneriManual=[]; }
+  try{ oneriOverrides = JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_overrides'))||{}; }catch(e){ oneriOverrides={}; }
   try{ propPayments = JSON.parse(localStorage.getItem('condo_'+condoId+'_prop'))||[]; }catch(e){ propPayments=[]; }
   try{ proprietari = JSON.parse(localStorage.getItem('condo_'+condoId+'_proprietari'))||[]; }catch(e){ proprietari=[]; }
 }
@@ -986,6 +1086,7 @@ function openCondoModal(editId){
   document.getElementById('modal-condo-title').textContent = editId ? 'Modifica condominio' : 'Nuovo condominio';
   document.getElementById('c-name').value = c ? c.name : '';
   document.getElementById('c-addr').value = c ? (c.addr||'') : '';
+  document.getElementById('c-inquilini').value = c ? (c.inquilini||[]).join(', ') : '';
   selectedColor = c ? c.color : CONDO_COLORS[0];
   selectedIcon  = c ? (c.icon||CONDO_ICONS[0]) : CONDO_ICONS[0];
   // Color picker
@@ -1013,9 +1114,11 @@ function saveCondo(){
   const name = document.getElementById('c-name').value.trim();
   if(!name){ showToast('Inserisci il nome del condominio'); return; }
   const editId = document.getElementById('c-id').value;
+  const inquiliniRaw = document.getElementById('c-inquilini').value;
+  const inquiliniList = inquiliniRaw.split(',').map(s=>s.trim()).filter(Boolean);
   if(editId){
     const c = condos.find(x=>x.id===editId);
-    if(c){ c.name=name; c.addr=document.getElementById('c-addr').value.trim(); c.color=selectedColor; c.icon=selectedIcon; }
+    if(c){ c.name=name; c.addr=document.getElementById('c-addr').value.trim(); c.color=selectedColor; c.icon=selectedIcon; c.inquilini=inquiliniList; }
     // Aggiorna sidebar se è il condominio corrente
     if(currentCondoId===editId){
       document.getElementById('sb-name').textContent=name;
@@ -1025,7 +1128,7 @@ function saveCondo(){
     showToast('Condominio aggiornato ✓');
   } else {
     const id = uid();
-    condos.push({id, name, addr:document.getElementById('c-addr').value.trim(), color:selectedColor, icon:selectedIcon});
+    condos.push({id, name, addr:document.getElementById('c-addr').value.trim(), color:selectedColor, icon:selectedIcon, inquilini:inquiliniList});
     showToast('Condominio creato ✓');
   }
   saveCondos();
@@ -1328,26 +1431,227 @@ function renderBilancio(){
 
 // ══ ONERI CONDOMINI ══
 function renderOneri(){
-  const uscite=txs.filter(inYear).filter(t=>t.type==='uscita');
-  const ONERI_CATS=[
-    {key:'tari_cond',label:'TARI',icon:'🗑',desc:'Tassa rifiuti a carico degli inquilini'},
-    {key:'acqua_cond',label:'Acqua conguaglio',icon:'💧',desc:'Conguaglio idrico fine anno'},
-    {key:'riscaldamento_cond',label:'Riscaldamento',icon:'🔥',desc:'Quota riscaldamento centralizzato'},
-    {key:'condominio',label:'Quote condominiali',icon:'🏛',desc:'Quote ordinarie a carico degli inquilini'},
-  ];
-  let html=''; let totalOneri=0;
-  ONERI_CATS.forEach(cat=>{
-    const items=uscite.filter(t=>t.cat===cat.key);
-    const total=items.reduce((s,t)=>s+(+t.amount),0); totalOneri+=total;
-    html+=`<div class="cond-section"><div class="cond-header">${cat.icon} ${cat.label} — ${cat.desc}</div>`
-      +(items.length ? items.map(t=>`<div class="cond-row"><div><div style="font-weight:500;font-size:13px">${t.desc}</div><div style="font-size:11px;color:var(--text-3)">${fmtDate(t.date)}${t.party?' · '+t.party:''}</div></div><div style="display:flex;align-items:center;gap:10px;"><span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">${fmt(t.amount)}</span><button class="${t.condPaid?'paid-tag':'unpaid-tag'}" onclick="toggleCondPaid('${t.id}')">${t.condPaid?'✓ Riscosso':'⏳ Da riscuotere'}</button></div></div>`).join('')
-      : `<div style="padding:20px;text-align:center;font-size:13px;color:var(--text-3)">Nessuna voce — <button class="btn btn-ghost btn-sm" style="display:inline-flex" onclick="openModal('uscita');setType('uscita');setTimeout(()=>document.getElementById('f-cat').value='${cat.key}',50)">+ Aggiungi</button></div>`)
-      +(items.length?`<div class="cond-row-total"><span>Totale ${cat.label}</span><span style="font-family:'DM Mono',monospace">${fmt(total)}</span></div>`:'')+`</div>`;
+  const el = document.getElementById('oneri-content');
+  const condo = currentCondo();
+  const inquilini = condo?.inquilini || [];
+
+  // ── Helper: is this payer a tenant? ──
+  function isTenant(nome){ 
+    if(!nome) return false;
+    return inquilini.some(inq => inq.toLowerCase() === nome.toLowerCase());
+  }
+
+  // ── Build auto-items from debiti ──
+  // Categories that are "oneri condomini" (shared charges)
+  const ONERI_DEBT_CATS = ['riscaldamento','condominio_ord'];
+  const autoItems = [];
+
+  debiti.filter(d=>ONERI_DEBT_CATS.includes(d.cat)).forEach(d=>{
+    d.payments.forEach(p=>{
+      const key = d.id + '_' + p.id;
+      const override = oneriOverrides[key] || {};
+      // Determine auto-stato
+      let autoStato = isTenant(p.pagante) ? 'riscosso' : 'da_riscuotere';
+      const stato = override.stato || autoStato;
+      const inquilino = override.inquilino || p.pagante || '';
+      const notes = override.notes || p.notes || '';
+      autoItems.push({
+        id: key,
+        source: 'debt',
+        debtId: d.id,
+        payId: p.id,
+        desc: d.desc,
+        cat: d.cat === 'condominio_ord' ? 'condominio' : 'riscaldamento_cond',
+        catLabel: d.cat === 'condominio_ord' ? 'Quote condominiali' : 'Riscaldamento',
+        catIcon: d.cat === 'condominio_ord' ? '🏛' : '🔥',
+        amount: p.amount,
+        date: p.date,
+        year: d.year,
+        stato, inquilino, notes,
+        isAutoRiscosso: autoStato === 'riscosso',
+        isOverridden: !!override.stato,
+        files: p.files || [],
+      });
+    });
   });
-  html+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE ONERI A CARICO CONDOMINI</div><div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--amber)">${fmt(totalOneri)}</div></div><div style="font-size:12px;color:var(--text-3);max-width:220px;text-align:right">TARI + Acqua conguaglio + Riscaldamento</div></div></div>`;
-  document.getElementById('oneri-content').innerHTML=html;
+
+  // ── Manual items ──
+  const manualItems = oneriManual.map(m=>({
+    id: m.id,
+    source: 'manual',
+    desc: m.desc,
+    cat: m.cat,
+    catLabel: {tari_cond:'TARI',acqua_cond:'Acqua conguaglio',riscaldamento_cond:'Riscaldamento',condominio:'Quote condominiali',altro:'Altro'}[m.cat]||m.cat,
+    catIcon: {tari_cond:'🗑',acqua_cond:'💧',riscaldamento_cond:'🔥',condominio:'🏛',altro:'📋'}[m.cat]||'📋',
+    amount: m.amount,
+    date: '',
+    year: m.year,
+    stato: m.stato||'da_riscuotere',
+    inquilino: m.inquilino||'',
+    notes: m.notes||'',
+    isAutoRiscosso: false,
+    isOverridden: false,
+    files: [],
+  }));
+
+  const allItems = [...autoItems, ...manualItems];
+
+  if(!allItems.length){
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>
+      <h3>Nessun onere</h3>
+      <p>Gli oneri si popolano automaticamente dai Debiti condominio<br>quando ci sono voci di tipo "Condominio ordinario" o "Riscaldamento".</p>
+      ${!inquilini.length?'<p style="margin-top:8px;color:var(--amber)">⚠ Configura prima gli inquilini cliccando "⚙ Gestisci inquilini"</p>':''}</div>`;
+    return;
+  }
+
+  // Stats
+  const totDaRiscuotere = allItems.filter(x=>x.stato==='da_riscuotere').reduce((s,x)=>s+(+x.amount),0);
+  const totRiscosso = allItems.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
+  const totParziale = allItems.filter(x=>x.stato==='parziale').reduce((s,x)=>s+(+x.amount),0);
+
+  // Group by category
+  const byCat = {};
+  allItems.forEach(item=>{
+    if(!byCat[item.catLabel]) byCat[item.catLabel] = {icon:item.catIcon, items:[]};
+    byCat[item.catLabel].items.push(item);
+  });
+
+  let html = `<div class="stats-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-label">Da riscuotere</div><div class="stat-value red">${fmt(totDaRiscuotere)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='da_riscuotere').length} voci</div></div>
+    <div class="stat-card"><div class="stat-label">Riscosso</div><div class="stat-value green">${fmt(totRiscosso)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='riscosso').length} voci</div></div>
+    ${totParziale>0?`<div class="stat-card"><div class="stat-label">Parziale</div><div class="stat-value amber">${fmt(totParziale)}</div></div>`:''}
+  </div>`;
+
+  if(!inquilini.length){
+    html += `<div style="padding:12px 16px;background:var(--amber-bg);border:1px solid rgba(179,92,0,.2);border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;color:var(--amber);">
+      ⚠ Nessun inquilino configurato — clicca "⚙ Gestisci inquilini" per definire chi sono gli inquilini e il sistema determinerà automaticamente lo stato "Riscosso".
+    </div>`;
+  }
+
+  Object.entries(byCat).forEach(([catLabel, {icon, items}])=>{
+    const catTot = items.reduce((s,x)=>s+(+x.amount),0);
+    const catRisc = items.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
+    html += `<div class="cond-section">
+      <div class="cond-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>${icon} ${catLabel}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;">${fmt(catRisc)} / ${fmt(catTot)}</span>
+      </div>
+      ${items.sort((a,b)=>a.date.localeCompare(b.date)).map(item=>{
+        const statoColor = item.stato==='riscosso'?'var(--green)':item.stato==='parziale'?'var(--amber)':'var(--red)';
+        const statoLabel = item.stato==='riscosso'?'✓ Riscosso':item.stato==='parziale'?'◑ Parziale':'⏳ Da riscuotere';
+        const autoTag = item.source==='debt' && !item.isOverridden ? 
+          `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--blue-bg);color:var(--blue);margin-left:4px;">auto</span>` : '';
+        const manualTag = item.source==='manual' ?
+          `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--amber-bg);color:var(--amber);margin-left:4px;">manuale</span>` : '';
+        return `<div class="cond-row" style="flex-wrap:wrap;gap:6px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:500;font-size:13px;display:flex;align-items:center;gap:4px;">
+              ${item.desc}${autoTag}${manualTag}
+            </div>
+            <div style="font-size:11px;color:var(--text-3);">
+              ${item.date?fmtDate(item.date):'—'} 
+              ${item.inquilino?'· '+item.inquilino:''} 
+              ${item.notes?'· '+item.notes:''}
+            </div>
+            ${item.files&&item.files.length?`<div style="display:flex;gap:3px;margin-top:4px;">${item.files.map(f=>f.type&&f.type.startsWith('image/')?`<img style="width:28px;height:28px;border-radius:3px;object-fit:cover;cursor:pointer;" src="${f.data}" onclick="window.open('${f.data}')">`:`<div style="width:28px;height:28px;border-radius:3px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;" onclick="window.open('${f.data}')">📄</div>`).join('')}</div>`:''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;">${fmt(item.amount)}</span>
+            <button style="font-size:11px;padding:3px 9px;border-radius:10px;border:1px solid ${statoColor};background:${item.stato==='riscosso'?'var(--green-bg)':item.stato==='parziale'?'var(--amber-bg)':'var(--red-bg)'};color:${statoColor};cursor:pointer;font-family:inherit;font-weight:600;" 
+              onclick="openOneriEdit('${item.id}','${item.source}')">${statoLabel}</button>
+            <button class="tx-btn" onclick="openOneriEdit('${item.id}','${item.source}')">✎</button>
+            ${item.source==='manual'?`<button class="tx-btn del" onclick="deleteOneriManual('${item.id}')">✕</button>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  el.innerHTML = html;
 }
-function toggleCondPaid(id){ const t=txs.find(x=>x.id===id); if(t){ t.condPaid=!t.condPaid; save(); renderOneri(); } }
+
+// ── Oneri manual CRUD ──
+function openOneriManualModal(editId){
+  const m = editId ? oneriManual.find(x=>x.id===editId) : null;
+  document.getElementById('modal-oneri-title').textContent = editId ? 'Modifica voce' : 'Nuova voce manuale';
+  document.getElementById('om-desc').value = m ? m.desc : '';
+  document.getElementById('om-cat').value = m ? m.cat : 'tari_cond';
+  document.getElementById('om-amount').value = m ? m.amount : '';
+  document.getElementById('om-year').value = m ? m.year : currentYear;
+  document.getElementById('om-inquilino').value = m ? (m.inquilino||'') : '';
+  document.getElementById('om-notes').value = m ? (m.notes||'') : '';
+  document.getElementById('om-id').value = editId||'';
+  // Populate inquilino datalist
+  const inq = currentCondo()?.inquilini||[];
+  const dl = document.getElementById('om-inq-list');
+  if(dl) dl.innerHTML = inq.map(i=>`<option value="${i}">`).join('');
+  document.getElementById('modal-oneri-manual').classList.add('open');
+}
+
+function saveOneriManual(){
+  const desc = document.getElementById('om-desc').value.trim();
+  const amount = parseFloat(document.getElementById('om-amount').value);
+  if(!desc){ showToast('Inserisci descrizione'); return; }
+  if(!amount||amount<=0){ showToast('Inserisci importo'); return; }
+  const editId = document.getElementById('om-id').value;
+  const id = editId || uid();
+  const item = {id, desc, amount, cat:document.getElementById('om-cat').value, year:document.getElementById('om-year').value, inquilino:document.getElementById('om-inquilino').value.trim(), notes:document.getElementById('om-notes').value.trim(), stato:'da_riscuotere'};
+  if(editId){ const idx=oneriManual.findIndex(x=>x.id===editId); if(idx!==-1) oneriManual[idx]=item; }
+  else oneriManual.push(item);
+  save(); closeModal('modal-oneri-manual'); showToast('Voce salvata'); renderOneri();
+}
+
+function deleteOneriManual(id){
+  if(!confirm('Eliminare questa voce?')) return;
+  oneriManual = oneriManual.filter(x=>x.id!==id);
+  save(); renderOneri();
+}
+
+// ── Oneri edit (stato + inquilino override) ──
+function openOneriEdit(itemId, source){
+  // Find item
+  let item = null;
+  if(source === 'manual'){
+    item = oneriManual.find(x=>x.id===itemId);
+  } else {
+    // itemId is debtId_payId
+    const override = oneriOverrides[itemId]||{};
+    const [debtId, payId] = itemId.split('_').reduce((acc,v,i)=>{ if(i===0) acc[0]=v; else acc[1]=(acc[1]||'')+v; return acc; },['','']);
+    const debt = debiti.find(x=>x.id===debtId);
+    const pay = debt?.payments.find(x=>x.id===payId);
+    if(!pay) return;
+    item = { stato: override.stato||(currentCondo()?.inquilini||[]).some(inq=>inq.toLowerCase()===(pay.pagante||'').toLowerCase())?'riscosso':'da_riscuotere', inquilino: override.inquilino||pay.pagante||'', notes: override.notes||pay.notes||'' };
+  }
+  if(!item) return;
+  document.getElementById('oe-id').value = itemId;
+  document.getElementById('oe-source').value = source;
+  document.getElementById('oe-stato').value = item.stato||'da_riscuotere';
+  document.getElementById('oe-inquilino').value = item.inquilino||'';
+  document.getElementById('oe-notes').value = item.notes||'';
+  document.getElementById('oe-desc').textContent = source==='manual' ? (item.desc||'Voce manuale') : itemId;
+  // Populate datalist
+  const inq = currentCondo()?.inquilini||[];
+  const dl = document.getElementById('oe-inq-list');
+  if(dl) dl.innerHTML = inq.map(i=>`<option value="${i}">`).join('');
+  document.getElementById('modal-oneri-edit').classList.add('open');
+}
+
+function saveOneriEdit(){
+  const itemId = document.getElementById('oe-id').value;
+  const source = document.getElementById('oe-source').value;
+  const stato = document.getElementById('oe-stato').value;
+  const inquilino = document.getElementById('oe-inquilino').value.trim();
+  const notes = document.getElementById('oe-notes').value.trim();
+  if(source === 'manual'){
+    const m = oneriManual.find(x=>x.id===itemId);
+    if(m){ m.stato=stato; m.inquilino=inquilino; m.notes=notes; }
+  } else {
+    oneriOverrides[itemId] = {stato, inquilino, notes};
+  }
+  save(); closeModal('modal-oneri-edit'); showToast('Aggiornato'); renderOneri();
+}
+
+// toggleCondPaid replaced by new oneri system
 
 // ══ FISCAL REGIME ══
 const IRPEF_SCAGLIONI=[{fino:28000,aliq:.23},{fino:50000,aliq:.35},{fino:Infinity,aliq:.43}];
@@ -1537,6 +1841,70 @@ function populatePropDatalist(listId){
 // (monkey-patch: keep extra fields)
 const _origSaveTx = saveTx;
 
+// ══ DEBT PAYMENT FILES ══
+let debtPayFiles = [];   // files for new payment modal
+let epFiles = [];        // files for edit-pagante modal
+
+function onDebtFilesSelect(input){
+  const files = Array.from(input.files).slice(0, 3 - debtPayFiles.length);
+  files.forEach(file=>{
+    if(debtPayFiles.length >= 3) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      debtPayFiles.push({data:e.target.result, name:file.name, type:file.type});
+      renderFilePreviews('dp-files-preview', debtPayFiles, true, 'debtPayFiles');
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function onEpFilesSelect(input){
+  const files = Array.from(input.files).slice(0, 3 - epFiles.length);
+  files.forEach(file=>{
+    if(epFiles.length >= 3) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      epFiles.push({data:e.target.result, name:file.name, type:file.type});
+      renderFilePreviews('ep-files-preview', epFiles, true, 'epFiles');
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function removeDebtFile(idx, arrName){
+  if(arrName === 'debtPayFiles') debtPayFiles.splice(idx, 1);
+  else if(arrName === 'epFiles') epFiles.splice(idx, 1);
+  const arr = arrName === 'debtPayFiles' ? debtPayFiles : epFiles;
+  const containerId = arrName === 'debtPayFiles' ? 'dp-files-preview' : 'ep-files-preview';
+  renderDebtFilePreviews(containerId, arr);
+}
+
+function renderDebtFilePreviews(containerId, filesArr){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = filesArr.map((f,i)=>{
+    const isImg = f.type && f.type.startsWith('image/');
+    const arrName = containerId === 'dp-files-preview' ? 'debtPayFiles' : 'epFiles';
+    return `<div class="file-item">
+      ${isImg ? `<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}">` 
+               : `<div class="file-thumb-pdf" onclick="window.open('${f.data}')" title="${f.name}">📄</div>`}
+      <button class="file-item-remove" onclick="removeDebtFile(${i},'${arrName}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// Override renderFilePreviews to handle 4th arg (arrName)
+const _origRenderFilePreviews = renderFilePreviews;
+function renderFilePreviews(containerId, filesArr, editable, arrName){
+  if(arrName === 'debtPayFiles' || arrName === 'epFiles'){
+    renderDebtFilePreviews(containerId, filesArr);
+    return;
+  }
+  _origRenderFilePreviews(containerId, filesArr, editable);
+}
+
 // ══ DEBITI CONDOMINIO ══
 const DEBT_CATS = {
   riscaldamento:{label:'Riscaldamento',icon:'🔥',color:'var(--blue)'},
@@ -1601,6 +1969,9 @@ function openDebtPayModal(debtId){
   document.getElementById('dp-notes').value = '';
   document.getElementById('dp-commission').value = '';
   document.getElementById('dp-pagante').value = '';
+  debtPayFiles = [];
+  document.getElementById('dp-files-preview').innerHTML = '';
+  document.getElementById('dp-files').value = '';
   // Populate pagante datalist from proprietari + known payers
   const dl = document.getElementById('dp-pagante-list');
   const known = ['Audino Giovanni','Audino Giuliano','Capano Aurora','Capponi Roberta','Bracony Marcella'];
@@ -1622,7 +1993,7 @@ function saveDebtPayment(){
   const method = document.getElementById('dp-method').value;
   const notes = document.getElementById('dp-notes').value.trim();
   const pagante = document.getElementById('dp-pagante').value.trim();
-  const payment = {id:uid(), amount, date, method, notes, commission, pagante};
+  const payment = {id:uid(), amount, date, method, notes, commission, pagante, files:[...debtPayFiles]};
   // Auto-add to proprietari if new name
   if(pagante && !proprietari.includes(pagante)) proprietari.push(pagante);
   d.payments.push(payment);
@@ -1715,7 +2086,8 @@ function renderDebiti(){
           <span style="color:var(--text-3);font-size:11px">${p.method||''}</span>
           ${p.commission>0?`<span style="font-size:11px;color:var(--amber)">+comm.${fmt(p.commission)}</span>`:''}
           <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:4px">${fmt(p.amount)}</span>
-          <button class="tx-btn" onclick="event.stopPropagation();editPaymentPagante('${d.id}','${p.id}')" title="Modifica pagante">👤</button>
+          ${p.files&&p.files.length?`<div style="display:flex;gap:3px;align-items:center;">${p.files.map(f=>f.type&&f.type.startsWith('image/')?`<img style="width:24px;height:24px;border-radius:3px;object-fit:cover;cursor:pointer;border:1px solid var(--border)" src="${f.data}" onclick="event.stopPropagation();window.open('${f.data}')" title="${f.name}">` :`<div style="width:24px;height:24px;border-radius:3px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;" onclick="event.stopPropagation();window.open('${f.data}')" title="${f.name}">📄</div>`).join('')}</div>`:''}
+          <button class="tx-btn" onclick="event.stopPropagation();editPaymentPagante('${d.id}','${p.id}')" title="Modifica pagante / allegati">👤</button>
           <button class="tx-btn del" onclick="event.stopPropagation();deleteDebtPayment('${d.id}','${p.id}')">✕</button>
         </div>`).join('');
 
@@ -1783,6 +2155,10 @@ function editPaymentPagante(debtId, paymentId){
   const allPayers = [...new Set([...known, ...proprietari])];
   const dl = document.getElementById('ep-pagante-list');
   if(dl) dl.innerHTML = allPayers.map(p=>`<option value="${p}">`).join('');
+  // Load existing files if any
+  epFiles = p.files ? [...p.files] : [];
+  renderDebtFilePreviews('ep-files-preview', epFiles);
+  document.getElementById('ep-files').value = '';
   document.getElementById('modal-edit-pagante').classList.add('open');
   setTimeout(()=>document.getElementById('ep-pagante').focus(),100);
 }
@@ -1798,6 +2174,11 @@ function savePaymentPagante(){
   if(!p) return;
   const oldPagante = p.pagante;
   p.pagante = newPagante;
+  // Merge files: keep existing, add new ones (up to 5 total)
+  if(epFiles.length > 0){
+    const existing = p.files || [];
+    p.files = [...existing, ...epFiles].slice(0, 5);
+  }
   // Auto-add to proprietari if new
   if(!proprietari.includes(newPagante)) proprietari.push(newPagante);
   // Update corresponding uscita in txs if exists
@@ -2456,7 +2837,7 @@ async function driveSaveCondos(){
 async function driveSaveData(manual=false){
   if(!driveAccessToken||!currentCondoId) return;
   const c=currentCondo();
-  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,condoName:c?.name,savedAt:new Date().toISOString()}));
+  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,oneriManual,oneriOverrides,condoName:c?.name,savedAt:new Date().toISOString()}));
   const t=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   if(ok){ setDriveStatus('connected',`Salvato ${t}`); if(manual) showToast('✓ Salvato su Drive'); }
   else { setDriveStatus('error','Errore salvataggio'); if(manual) showToast('Errore salvataggio Drive'); }
@@ -2489,6 +2870,7 @@ async function driveLoadData(condoId,silent=false){
     if(data&&data.txs){
       txs=data.txs; deadlines=data.deadlines||[];
       debiti=data.debiti||[]; propPayments=data.propPayments||[]; proprietari=data.proprietari||[];
+      oneriManual=data.oneriManual||[]; oneriOverrides=data.oneriOverrides||{};
       localStorage.setItem('condo_'+condoId+'_txs',JSON.stringify(txs));
       localStorage.setItem('condo_'+condoId+'_deadlines',JSON.stringify(deadlines));
       localStorage.setItem('condo_'+condoId+'_debiti',JSON.stringify(debiti));
