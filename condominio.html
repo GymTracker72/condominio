@@ -686,6 +686,11 @@ textarea{resize:vertical;min-height:70px;}
         </select>
       </div>
       <div class="form-group"><label>Note</label><input type="text" id="dp-notes" placeholder="Es. 1ª rata..."></div>
+      <div class="form-group full">
+        <label>Chi ha pagato</label>
+        <input type="text" id="dp-pagante" list="dp-pagante-list" placeholder="Es. Audino Giovanni, Capano Aurora..." autocomplete="off">
+        <datalist id="dp-pagante-list"></datalist>
+      </div>
       <div class="form-group full" style="background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
         <label style="color:var(--amber);">Commissione bancaria/postale (€) — opzionale</label>
         <input type="number" id="dp-commission" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
@@ -1573,6 +1578,12 @@ function openDebtPayModal(debtId){
   document.getElementById('dp-method').value = 'bonifico';
   document.getElementById('dp-notes').value = '';
   document.getElementById('dp-commission').value = '';
+  document.getElementById('dp-pagante').value = '';
+  // Populate pagante datalist from proprietari + known payers
+  const dl = document.getElementById('dp-pagante-list');
+  const known = ['Audino Giovanni','Audino Giuliano','Capano Aurora','Capponi Roberta','Bracony Marcella'];
+  const allPayers = [...new Set([...known, ...proprietari])];
+  if(dl) dl.innerHTML = allPayers.map(p=>`<option value="${p}">`).join('');
   document.getElementById('dp-debt-id').value = debtId;
   document.getElementById('modal-debt-pay').classList.add('open');
 }
@@ -1588,7 +1599,10 @@ function saveDebtPayment(){
   if(!d) return;
   const method = document.getElementById('dp-method').value;
   const notes = document.getElementById('dp-notes').value.trim();
-  const payment = {id:uid(), amount, date, method, notes, commission};
+  const pagante = document.getElementById('dp-pagante').value.trim();
+  const payment = {id:uid(), amount, date, method, notes, commission, pagante};
+  // Auto-add to proprietari if new name
+  if(pagante && !proprietari.includes(pagante)) proprietari.push(pagante);
   d.payments.push(payment);
   // Check if fully paid
   const totalPaid = d.payments.reduce((s,p)=>s+(+p.amount),0);
@@ -1630,7 +1644,7 @@ function renderDebiti(){
   const totalDovuto = debiti.reduce((s,d)=>s+(+d.total),0);
   const totalPagato = debiti.reduce((s,d)=>s+d.payments.reduce((sp,p)=>sp+(+p.amount),0),0);
   const totalResiduo = totalDovuto - totalPagato;
-  const open = debiti.filter(d=>d.open!==false||d.payments.reduce((s,p)=>s+(+p.amount),0)<d.total).length;
+  const open = debiti.filter(d=>d.payments.reduce((s,p)=>s+(+p.amount),0)<d.total).length;
   document.getElementById('debt-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Totale dovuto</div><div class="stat-value blue">${fmt(totalDovuto)}</div><div class="stat-delta">${debiti.length} voci</div></div>
     <div class="stat-card"><div class="stat-label">Totale versato</div><div class="stat-value green">${fmt(totalPagato)}</div></div>
@@ -1641,13 +1655,63 @@ function renderDebiti(){
     el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><h3>Nessun debito registrato</h3><p>Aggiungi le voci dall\'estratto conto del condominio</p></div>';
     return;
   }
+
+  const PAYER_COLORS = ['#2d6a4f','#1a4a8a','#b35c00','#6b3fa0','#c0392b','#1a7a7a','#8a4a1a'];
+  function payerColor(name){
+    let hash = 0;
+    for(let i=0;i<name.length;i++) hash = name.charCodeAt(i) + ((hash<<5)-hash);
+    return PAYER_COLORS[Math.abs(hash) % PAYER_COLORS.length];
+  }
+  function initials(name){
+    return name.split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+  }
+
   el.innerHTML = debiti.map(d=>{
     const paid = d.payments.reduce((s,p)=>s+(+p.amount),0);
     const residuo = Math.max(0, d.total - paid);
-    const pct = Math.min(100, (paid/d.total*100));
+    const pct = Math.min(100,(paid/d.total*100));
     const isSald = residuo===0;
     const dc = DEBT_CATS[d.cat]||DEBT_CATS.altro;
     const fillCls = pct>=100?'':pct>50?'warning':'danger';
+
+    // Group payments by pagante
+    const byPagante = {};
+    d.payments.forEach(p=>{
+      const key = p.pagante || 'Non specificato';
+      if(!byPagante[key]) byPagante[key] = [];
+      byPagante[key].push(p);
+    });
+
+    const payersHtml = Object.entries(byPagante).map(([nome,pmts])=>{
+      const tot = pmts.reduce((s,p)=>s+(+p.amount),0);
+      const col = payerColor(nome);
+      const ini = initials(nome);
+      const rowsHtml = pmts.sort((a,b)=>a.date.localeCompare(b.date)).map(p=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:7px 16px 7px 52px;border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="color:var(--text-3);width:82px;flex-shrink:0">${fmtDate(p.date)}</span>
+          <span style="flex:1;color:var(--text-2)">${p.notes||'Pagamento'}</span>
+          <span style="color:var(--text-3);font-size:11px">${p.method||''}</span>
+          ${p.commission>0?`<span style="font-size:11px;color:var(--amber)">+comm.${fmt(p.commission)}</span>`:''}
+          <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:4px">${fmt(p.amount)}</span>
+          <button class="tx-btn del" onclick="event.stopPropagation();deleteDebtPayment('${d.id}','${p.id}')">✕</button>
+        </div>`).join('');
+
+      return `
+        <div class="debt-payer-group" id="dpg-${d.id}-${nome.replace(/\s/g,'_')}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;background:var(--surface2);border-bottom:1px solid var(--border);"
+               onclick="togglePayerGroup('${d.id}','${nome.replace(/\s/g,'_')}')">
+            <div style="width:26px;height:26px;border-radius:50%;background:${col};color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</div>
+            <span style="font-size:13px;font-weight:500;flex:1">${nome}</span>
+            <span style="font-size:11px;color:var(--text-3)">${pmts.length} pagamento/i</span>
+            <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--green)">${fmt(tot)}</span>
+            <span style="font-size:11px;color:var(--text-3);margin-left:4px">▾</span>
+          </div>
+          <div id="dpg-rows-${d.id}-${nome.replace(/\s/g,'_')}" style="display:none">
+            ${rowsHtml}
+          </div>
+        </div>`;
+    }).join('');
+
     return `
     <div class="debt-card">
       <div class="debt-card-header" onclick="toggleDebtBody('${d.id}')">
@@ -1665,6 +1729,7 @@ function renderDebiti(){
             <div class="debt-amt"><strong class="blue">${fmt(d.total)}</strong>Dovuto</div>
             <div class="debt-amt"><strong class="green">${fmt(paid)}</strong>Versato</div>
             <div class="debt-amt"><strong class="${residuo>0?'red':'green'}">${fmt(residuo)}</strong>Residuo</div>
+            ${Object.keys(byPagante).length>0?`<div class="debt-amt"><strong style="color:var(--text-2)">${Object.keys(byPagante).length}</strong>Paganti</div>`:''}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-left:12px;">
@@ -1673,20 +1738,18 @@ function renderDebiti(){
           <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="event.stopPropagation();deleteDebt('${d.id}')">✕</button>
         </div>
       </div>
-      <div class="debt-body" id="debt-body-${d.id}" style="display:${d.payments.length?'block':'none'}">
-        ${d.payments.length ? d.payments.map(p=>`
-          <div class="debt-payment-row">
-            <span style="color:var(--text-3);width:90px;flex-shrink:0">${fmtDate(p.date)}</span>
-            <span style="flex:1">${p.notes||'Pagamento'}</span>
-            <span style="color:var(--text-3);font-size:12px">${p.method||''}</span>
-            <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:8px">${fmt(p.amount)}</span>
-            ${p.commission>0?`<span style="font-size:11px;color:var(--amber);margin-left:4px">+comm. ${fmt(p.commission)}</span>`:''}
-            <button class="tx-btn del" onclick="deleteDebtPayment('${d.id}','${p.id}')">✕</button>
-          </div>`).join('') : ''}
+      <div class="debt-body" id="debt-body-${d.id}" style="display:${d.payments.length?'block':'none'};padding:0;">
+        ${d.payments.length ? payersHtml : ''}
       </div>
     </div>`;
   }).join('');
 }
+
+function togglePayerGroup(debtId, payerKey){
+  const rows = document.getElementById('dpg-rows-'+debtId+'-'+payerKey);
+  if(rows) rows.style.display = rows.style.display==='none'?'block':'none';
+}
+
 
 function toggleDebtBody(id){
   const el = document.getElementById('debt-body-'+id);
@@ -1900,8 +1963,8 @@ const ESTRATTO_VOCI = [
     notes: '2 rate da €60 — Scala A1',
     saldato: true,
     payments: [
-      {id:'imp_p1', amount:60.00, date:'2024-03-29', method:'bonifico', notes:'1ª rata portone — Audino Giuliano'},
-      {id:'imp_p2', amount:60.00, date:'2024-04-30', method:'bonifico', notes:'2ª rata portone — Audino Giuliano'},
+      {id:'imp_p1', amount:60.00, date:'2024-03-29', method:'bonifico', notes:'1ª rata portone', pagante:'Audino Giuliano'},
+      {id:'imp_p2', amount:60.00, date:'2024-04-30', method:'bonifico', notes:'2ª rata portone', pagante:'Audino Giuliano'},
     ]
   },
   {
@@ -1913,7 +1976,7 @@ const ESTRATTO_VOCI = [
     notes: '4 rate da €136 meno conguaglio credito €0,94 — residuo €458,06',
     saldato: false,
     payments: [
-      {id:'imp_b1', amount:85.00, date:'2025-01-15', method:'bonifico', notes:'1ª rata bonifica amianto (parziale)'},
+      {id:'imp_b1', amount:85.00, date:'2025-01-15', method:'bonifico', notes:'1ª rata bonifica amianto (parziale)', pagante:'Capano Aurora'},
     ]
   },
   {
@@ -1925,16 +1988,16 @@ const ESTRATTO_VOCI = [
     notes: '12 rate da €85 — residuo €100,00 (rate feb e dic non pagate, crediti da sovrappagamenti)',
     saldato: false,
     payments: [
-      {id:'imp_c1', amount:85.00,  date:'2025-01-15', method:'bonifico', notes:'1ª rata condominio 2025'},
-      {id:'imp_c2', amount:85.00,  date:'2025-03-15', method:'bonifico', notes:'3ª rata condominio 2025'},
-      {id:'imp_c3', amount:85.00,  date:'2025-04-15', method:'bonifico', notes:'4ª rata condominio 2025'},
-      {id:'imp_c4', amount:100.00, date:'2025-05-15', method:'bonifico', notes:'5ª rata condominio 2025 (€100 — extra €15)'},
-      {id:'imp_c5', amount:100.00, date:'2025-06-15', method:'bonifico', notes:'6ª rata condominio 2025 (€100)'},
-      {id:'imp_c6', amount:105.00, date:'2025-07-15', method:'bonifico', notes:'7ª rata condominio 2025 (€105 — extra €20)'},
-      {id:'imp_c7', amount:105.00, date:'2025-08-15', method:'bonifico', notes:'8ª rata condominio 2025 (€105 — extra €20)'},
-      {id:'imp_c8', amount:85.00,  date:'2025-09-15', method:'bonifico', notes:'9ª rata condominio 2025'},
-      {id:'imp_c9', amount:85.00,  date:'2025-10-15', method:'bonifico', notes:'10ª rata condominio 2025'},
-      {id:'imp_c10',amount:85.00,  date:'2025-11-15', method:'bonifico', notes:'11ª rata condominio 2025'},
+      {id:'imp_c1', amount:85.00,  date:'2025-01-15', method:'bonifico', notes:'1ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c2', amount:85.00,  date:'2025-03-15', method:'bonifico', notes:'3ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c3', amount:85.00,  date:'2025-04-15', method:'bonifico', notes:'4ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c4', amount:100.00, date:'2025-05-15', method:'bonifico', notes:'5ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c5', amount:100.00, date:'2025-06-15', method:'bonifico', notes:'6ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c6', amount:105.00, date:'2025-07-15', method:'bonifico', notes:'7ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c7', amount:105.00, date:'2025-08-15', method:'bonifico', notes:'8ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c8', amount:85.00,  date:'2025-09-15', method:'bonifico', notes:'9ª rata condominio 2025', pagante:'Capano Aurora'},
+      {id:'imp_c9', amount:85.00,  date:'2025-10-15', method:'bonifico', notes:'10ª rata condominio 2025', pagante:'Capponi Roberta'},
+      {id:'imp_c10',amount:85.00,  date:'2025-11-15', method:'bonifico', notes:'11ª rata condominio 2025', pagante:'Capponi Roberta'},
     ]
   },
   {
@@ -1946,8 +2009,8 @@ const ESTRATTO_VOCI = [
     notes: 'Residuo €3.778,60 — versato parzialmente €3.956,18',
     saldato: false,
     payments: [
-      {id:'imp_cg1', amount:630.00,  date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti non contabilizzati 23/24'},
-      {id:'imp_cg2', amount:3326.18, date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti anno 22-23 gestione Coviello'},
+      {id:'imp_cg1', amount:630.00,  date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti non contabilizzati 23/24', pagante:'Audino Giuliano'},
+      {id:'imp_cg2', amount:3326.18, date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti anno 22-23 gestione Coviello', pagante:'Audino Giuliano'},
     ]
   },
   {
@@ -1969,7 +2032,7 @@ const ESTRATTO_VOCI = [
     notes: 'Residuo €2.230,61',
     saldato: false,
     payments: [
-      {id:'imp_cr1', amount:1030.50, date:'2025-12-09', method:'bonifico', notes:'Conguaglio risc. 24/25 — Capano Aurora'},
+      {id:'imp_cr1', amount:1030.50, date:'2025-12-09', method:'bonifico', notes:'Conguaglio risc. 24/25', pagante:'Capano Aurora'},
     ]
   },
   {
