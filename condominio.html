@@ -660,9 +660,9 @@ textarea{resize:vertical;min-height:70px;}
       <datalist id="ep-pagante-list"></datalist>
     </div>
     <div class="form-group" style="margin-top:12px;">
-      <label>Foto ricevuta/bonifico (fino a 3 — solo immagini)</label>
+      <label>Allegati ricevuta/bonifico (fino a 3)</label>
       <div class="file-zone" onclick="document.getElementById('ep-files').click()">
-        <input type="file" id="ep-files" accept="image/*" multiple style="display:none" onchange="onEpFilesSelect(this)">
+        <input type="file" id="ep-files" accept="image/*,.pdf" multiple style="display:none" onchange="onEpFilesSelect(this)">
         <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF</div>
       </div>
       <div class="files-grid" id="ep-files-preview"></div>
@@ -849,9 +849,9 @@ textarea{resize:vertical;min-height:70px;}
       </div>
     </div>
       <div class="form-group full">
-        <label>Foto ricevuta/bonifico (fino a 3 — solo immagini)</label>
+        <label>Allegati ricevuta/bonifico (fino a 3)</label>
         <div class="file-zone" onclick="document.getElementById('dp-files').click()">
-          <input type="file" id="dp-files" accept="image/*" multiple style="display:none" onchange="onDebtFilesSelect(this)">
+          <input type="file" id="dp-files" accept="image/*,.pdf" multiple style="display:none" onchange="onDebtFilesSelect(this)">
           <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
         </div>
         <div class="files-grid" id="dp-files-preview"></div>
@@ -959,7 +959,7 @@ function cacheAndView(data){
   return key;
 }
 const CLIENT_ID = '765529798488-9d17bd1u9mqi1iico8fickia8ochfbrf.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
 const CONDO_COLORS = ['#2d6a4f','#1a4a8a','#c0392b','#b35c00','#6b3fa0','#1a7a7a','#8a4a1a','#555'];
 const CONDO_ICONS  = ['🏢','🏠','🏗','🏘','🏛','🏬','🏚','🏙'];
 
@@ -1979,12 +1979,22 @@ function compressImage(file, maxW, quality, cb){
   reader.readAsDataURL(file);
 }
 
+function readFileForUpload(file, cb){
+  if(file.type.startsWith('image/')){
+    compressImage(file, 1200, 0.75, cb);
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => cb(e.target.result, file.name, file.type);
+    reader.readAsDataURL(file);
+  }
+}
+
 function onDebtFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - debtPayFiles.length);
   files.forEach(file=>{
     if(debtPayFiles.length >= 3) return;
-    compressImage(file, 1200, 0.75, (data, name, type)=>{
-      debtPayFiles.push({data, name, type});
+    readFileForUpload(file, (data, name, type)=>{
+      debtPayFiles.push({data, name, type, _pending:true});
       renderFilePreviews('dp-files-preview', debtPayFiles, true, 'debtPayFiles');
     });
   });
@@ -1995,8 +2005,8 @@ function onEpFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - epFiles.length);
   files.forEach(file=>{
     if(epFiles.length >= 3) return;
-    compressImage(file, 1200, 0.75, (data, name, type)=>{
-      epFiles.push({data, name, type});
+    readFileForUpload(file, (data, name, type)=>{
+      epFiles.push({data, name, type, _pending:true});
       renderFilePreviews('ep-files-preview', epFiles, true, 'epFiles');
     });
   });
@@ -2017,12 +2027,22 @@ function renderDebtFilePreviews(containerId, filesArr){
   el.innerHTML = filesArr.map((f,i)=>{
     const isImg = f.type && f.type.startsWith('image/');
     const arrName = containerId === 'dp-files-preview' ? 'debtPayFiles' : 'epFiles';
-    const key = cacheAndView(f.data);
-    return `<div class="file-item">
-      ${isImg ? `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}">` 
-               : `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name}">📄</div>`}
-      <button class="file-item-remove" onclick="removeDebtFile(${i},'${arrName}')">✕</button>
-    </div>`;
+    const hasDrive = !!f.driveFileId;
+    let thumb;
+    if(hasDrive){
+      // Show Drive icon, open from Drive
+      thumb = `<div class="file-thumb-pdf" onclick="openFileRef(${JSON.stringify(f).replace(/"/g,'&quot;')})" title="${f.name} (Drive)">
+        <span style="font-size:10px;color:var(--green)">☁</span>📄</div>`;
+    } else if(isImg && f.data){
+      const key = cacheAndView(f.data);
+      thumb = `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}${f._pending?' (in attesa upload)':''}">`;
+    } else if(f.data){
+      const key = cacheAndView(f.data);
+      thumb = `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name}">📄${f._pending?'⏳':''}</div>`;
+    } else {
+      thumb = `<div class="file-thumb-pdf" style="cursor:default" title="${f.name}">📄</div>`;
+    }
+    return `<div class="file-item">${thumb}<button class="file-item-remove" onclick="removeDebtFile(${i},'${arrName}')">✕</button></div>`;
   }).join('');
 }
 
@@ -2217,7 +2237,11 @@ function renderDebiti(){
           <span style="color:var(--text-3);font-size:11px">${p.method||''}</span>
           ${p.commission>0?`<span style="font-size:11px;color:var(--amber)">+comm.${fmt(p.commission)}</span>`:''}
           <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:4px">${fmt(p.amount)}</span>
-          ${p.files&&p.files.length?`<div style="display:flex;gap:3px;align-items:center;">${p.files.map(f=>{const k=cacheAndView(f.data);return f.type&&f.type.startsWith('image/')?`<img style="width:24px;height:24px;border-radius:3px;object-fit:cover;cursor:pointer;border:1px solid var(--border)" src="${f.data}" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">` :`<div style="width:24px;height:24px;border-radius:3px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">📄</div>`;}).join('')}</div>`:''}
+          ${p.files&&p.files.length?`<div style="display:flex;gap:3px;align-items:center;">${p.files.map(f=>{
+  if(f.driveFileId) return `<div style="width:24px;height:24px;border-radius:3px;background:var(--green-bg);border:1px solid var(--green-light);display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();window.open('https://drive.google.com/file/d/${f.driveFileId}/view','_blank')" title="${f.name}">☁</div>`;
+  const k=cacheAndView(f.data||'');
+  return f.type&&f.type.startsWith('image/')?`<img style="width:24px;height:24px;border-radius:3px;object-fit:cover;cursor:pointer;border:1px solid var(--border)" src="${f.data}" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">` :`<div style="width:24px;height:24px;border-radius:3px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">📄</div>`;
+}).join('')}</div>`:''}
           <button class="tx-btn" onclick="event.stopPropagation();editPaymentPagante('${d.id}','${p.id}')" title="Modifica pagante / allegati">👤</button>
           <button class="tx-btn del" onclick="event.stopPropagation();deleteDebtPayment('${d.id}','${p.id}')">✕</button>
         </div>`).join('');
@@ -2316,9 +2340,16 @@ function savePaymentPagante(){
   const txDesc = 'Pagamento: ' + d.desc;
   const matchTx = txs.find(t=>t.type==='uscita' && t.desc===txDesc && t.date===p.date && Math.abs((+t.amount)-(+p.amount))<0.01 && (t.party===oldPagante||!t.party));
   if(matchTx) matchTx.party = newPagante;
+  if(driveAccessToken && p.files && p.files.some(f=>f._pending)){
+    uploadPendingFiles(p.files).then(uploaded=>{
+      p.files = uploaded;
+      save(); renderDebiti();
+    });
+  }
   save();
   closeModal('modal-edit-pagante');
-  showToast('Pagante aggiornato: ' + newPagante);
+  showToast('Salvato: ' + newPagante);
+  if(driveAccessToken && epFiles.some(f=>f._pending)) showToast('Caricamento allegati su Drive...');
   renderDebiti();
 }
 
@@ -2759,6 +2790,112 @@ function doImport(){
 }
 
 
+
+
+// ══ DRIVE FILE STORAGE ══
+const DRIVE_FOLDER_NAME = 'CondominioDB_Allegati';
+let driveFolderCache = {}; // {condoId: folderId}
+
+async function getDriveFolder(condoId){
+  if(driveFolderCache[condoId]) return driveFolderCache[condoId];
+  if(!driveAccessToken) return null;
+  const condoName = condos.find(c=>c.id===condoId)?.name || condoId;
+  const folderName = DRIVE_FOLDER_NAME + '_' + condoName.replace(/[^a-zA-Z0-9]/g,'_');
+  // Search existing
+  try{
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
+      {headers:{Authorization:'Bearer '+driveAccessToken}}
+    );
+    if(r.status===401){driveTokenExpired();return null;}
+    const d = await r.json();
+    if(d.files&&d.files.length){
+      driveFolderCache[condoId] = d.files[0].id;
+      return d.files[0].id;
+    }
+    // Create folder
+    const res = await fetch('https://www.googleapis.com/drive/v3/files',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
+      body: JSON.stringify({name:folderName, mimeType:'application/vnd.google-apps.folder'})
+    });
+    if(!res.ok) return null;
+    const folder = await res.json();
+    driveFolderCache[condoId] = folder.id;
+    return folder.id;
+  }catch(e){ return null; }
+}
+
+async function uploadFileToDrive(fileData, fileName, mimeType){
+  if(!driveAccessToken) return null;
+  try{
+    const folderId = await getDriveFolder(currentCondoId);
+    // Convert base64 to blob
+    const base64 = fileData.split(',')[1];
+    const binary = atob(base64);
+    const arr = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++) arr[i] = binary.charCodeAt(i);
+    const blob = new Blob([arr], {type: mimeType});
+    const meta = {name: fileName, parents: folderId ? [folderId] : []};
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(meta)],{type:'application/json'}));
+    form.append('file', blob);
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+driveAccessToken},
+      body: form
+    });
+    if(res.status===401){driveTokenExpired();return null;}
+    if(!res.ok) return null;
+    const j = await res.json();
+    // Make file readable via link
+    await fetch(`https://www.googleapis.com/drive/v3/files/${j.id}/permissions`,{
+      method:'POST',
+      headers:{Authorization:'Bearer '+driveAccessToken,'Content-Type':'application/json'},
+      body: JSON.stringify({role:'reader',type:'anyone'})
+    });
+    return {driveFileId: j.id, name: fileName, type: mimeType,
+            url: `https://drive.google.com/file/d/${j.id}/view`};
+  }catch(e){ console.error('Drive upload error',e); return null; }
+}
+
+async function deleteFileFromDrive(driveFileId){
+  if(!driveAccessToken||!driveFileId) return;
+  try{
+    await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`,{
+      method:'DELETE',
+      headers:{Authorization:'Bearer '+driveAccessToken}
+    });
+  }catch(e){}
+}
+
+// Process files array: upload any that have local base64 data, replace with Drive ref
+async function uploadPendingFiles(filesArr){
+  if(!driveAccessToken) return filesArr;
+  const results = [];
+  for(const f of filesArr){
+    if(f.driveFileId){
+      results.push(f); // already on Drive
+    } else if(f.data){
+      setDriveStatus('syncing','Caricamento allegato...');
+      const driveRef = await uploadFileToDrive(f.data, f.name, f.type||'application/octet-stream');
+      if(driveRef){
+        results.push(driveRef); // replace local data with Drive ref
+      } else {
+        results.push(f); // keep local as fallback
+        showToast('Avviso: allegato non caricato su Drive, salvato in locale');
+      }
+    }
+  }
+  return results;
+}
+
+// Open a file: from Drive or local
+function openFileRef(f){
+  if(f.url){ window.open(f.url,'_blank'); }
+  else if(f.driveFileId){ window.open(`https://drive.google.com/file/d/${f.driveFileId}/view`,'_blank'); }
+  else if(f.data){ const k=cacheAndView(f.data); viewFile(k); }
+}
 
 // ══ ANAGRAFICA ══
 const RUOLO_CFG = {
