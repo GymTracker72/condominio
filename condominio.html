@@ -1247,7 +1247,13 @@ function navigate(view){
   if(view==='entrate')   renderList('entrate');
   if(view==='uscite')    renderList('uscite');
   if(view==='tutti')     renderList('tutti');
-  if(view==='anagrafica') renderAnagrafica();
+  if(view==='anagrafica'){
+    // Ensure anagrafica is loaded from localStorage if empty
+    if(!anagrafica.length && currentCondoId){
+      try{ anagrafica=JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_anagrafica'))||[]; }catch(e){}
+    }
+    renderAnagrafica();
+  }
   if(view==='debiti')    renderDebiti();
   if(view==='proprietari') renderProprietari();
   if(view==='bilancio')  renderBilancio();
@@ -2238,11 +2244,24 @@ function saveDebtPayment(){
     };
     txs.push(txComm);
   }
+  // Se pagante è proprietario → crea anche voce in Vers. proprietari
+  if(payerIsOwner && pagante){
+    const propPay = {
+      id: uid(),
+      date, amount,
+      prop: pagante,
+      desc: 'Pagamento debito: ' + d.desc,
+      method,
+      notes: (notes||'') + (commission>0?' (comm. '+fmt(commission)+')':''),
+      cat: txCat,
+    };
+    propPayments.push(propPay);
+  }
   save();
   closeModal('modal-debt-pay');
   const msg = commission>0
-    ? 'Pagamento registrato ✓ — uscita '+fmt(amount)+' + commissione '+fmt(commission)
-    : 'Pagamento registrato ✓ — uscita creata';
+    ? 'Pagamento registrato — uscita '+fmt(amount)+' + commissione '+fmt(commission)
+    : 'Pagamento registrato — uscita creata';
   showToast(msg);
   renderDebiti();
 }
@@ -3014,10 +3033,15 @@ function isInquilino(nome, dataRif){
 
 function isProprietario(nome){
   if(!nome) return false;
-  const props = getProprietari();
-  // Also check Audino hardcoded as fallback
-  if(['audino giovanni','audino giuliano'].includes(nome.toLowerCase())) return true;
-  return props.some(n => n.toLowerCase() === nome.toLowerCase());
+  const n = nome.toLowerCase().trim();
+  // Hardcoded fallback for Audino family
+  if(n.includes('audino')) return true;
+  // Check anagrafica proprietari
+  if(anagrafica.length){
+    return anagrafica.filter(p=>p.ruolo==='proprietario').some(p=>p.nome.toLowerCase()===n);
+  }
+  // Check proprietari array
+  return proprietari.some(p=>p.toLowerCase()===n);
 }
 
 function openAnagraficaModal(editId){
