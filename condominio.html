@@ -379,8 +379,9 @@ textarea{resize:vertical;min-height:70px;}
         <button class="nav-item" onclick="navigate('bilancio')"><span class="icon">⚖</span><span>Bilancio</span></button>
         <button class="nav-item" onclick="navigate('oneri')"><span class="icon">⊛</span><span>Oneri condomini</span></button>
         <button class="nav-item" onclick="navigate('report')"><span class="icon">◫</span><span>Report / 730</span></button>
+        <button class="nav-item" onclick="navigate('anagrafica')"><span class="icon">👥</span><span>Anagrafica</span></button>
         <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Debiti condominio</span></button>
-        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">👤</span><span>Proprietari</span></button>
+        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">💰</span><span>Vers. proprietari</span></button>
         <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenzario</span></button>
       </div>
     </nav>
@@ -491,6 +492,15 @@ textarea{resize:vertical;min-height:70px;}
     </div>
 
 
+    <!-- ANAGRAFICA -->
+    <div id="view-anagrafica" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Anagrafica</div><div class="page-subtitle">Proprietari e inquilini del condominio</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal()">+ Aggiungi persona</button>
+      </div>
+      <div id="anagrafica-content"></div>
+    </div>
+
     <!-- DEBITI CONDOMINIO -->
     <div id="view-debiti" class="view">
       <div class="page-header">
@@ -541,10 +551,8 @@ textarea{resize:vertical;min-height:70px;}
       <div class="form-group full"><label>Icona</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="icon-picker"></div>
       </div>
-      <div class="form-group full">
-        <label>Inquilini (nomi separati da virgola)</label>
-        <input type="text" id="c-inquilini" placeholder="Es. Capano Aurora, Capponi Roberta, Bracony Marcella">
-        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">I pagamenti fatti da questi nomi nei Debiti verranno marcati come "Riscosso" negli Oneri</div>
+      <div class="form-group full" style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:10px 12px;border:1px solid rgba(26,74,138,.15);">
+        <div style="font-size:12px;color:var(--blue);">ℹ Gli inquilini si gestiscono nella sezione <strong>Anagrafica</strong></div>
       </div>
     </div>
     <input type="hidden" id="c-id">
@@ -668,6 +676,41 @@ textarea{resize:vertical;min-height:70px;}
   </div>
 </div>
 
+<!-- MODAL: Anagrafica persona -->
+<div class="modal-overlay" id="modal-anagrafica">
+  <div class="modal" style="width:500px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-anag-title">Aggiungi persona</div>
+      <button class="modal-close" onclick="closeModal('modal-anagrafica')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome e cognome</label><input type="text" id="an-nome" placeholder="Es. Papini Furio"></div>
+      <div class="form-group full"><label>Ruolo</label>
+        <select id="an-ruolo" onchange="onAnRuoloChange(this.value)">
+          <option value="inquilino">🏠 Inquilino attivo</option>
+          <option value="ex_inquilino">📁 Ex inquilino</option>
+          <option value="proprietario">🔑 Proprietario</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Dal</label><input type="date" id="an-dal"></div>
+      <div class="form-group"><label>Al (vuoto = attivo)</label><input type="date" id="an-al"></div>
+      <div class="form-group full" id="an-pregresso-group" style="display:none;background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
+        <label style="color:var(--amber);">Debito pregresso a carico proprietari (€)</label>
+        <input type="number" id="an-pregresso" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+        <div style="font-size:11px;color:var(--amber);margin-top:5px;">Importo che i proprietari devono coprire per conto di questo ex inquilino</div>
+      </div>
+      <div class="form-group"><label>Telefono</label><input type="text" id="an-tel" placeholder="Es. 333 1234567"></div>
+      <div class="form-group"><label>Email</label><input type="text" id="an-email" placeholder="Es. nome@email.it"></div>
+      <div class="form-group full"><label>Note</label><textarea id="an-note" placeholder="Note aggiuntive..."></textarea></div>
+    </div>
+    <input type="hidden" id="an-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-anagrafica')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveAnagrafica()">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Voce manuale oneri -->
 <div class="modal-overlay" id="modal-oneri-manual">
   <div class="modal modal-sm">
@@ -720,6 +763,7 @@ textarea{resize:vertical;min-height:70px;}
           <option value="da_riscuotere">⏳ Da riscuotere</option>
           <option value="riscosso">✓ Riscosso</option>
           <option value="parziale">◑ Parzialmente riscosso</option>
+          <option value="a_carico_proprietari">🏠 A carico proprietari</option>
         </select>
       </div>
       <div class="form-group full"><label>Inquilino / Soggetto</label>
@@ -930,7 +974,9 @@ const REGIME_INFO = {
 // ══ STATE ══
 let condos = [];           // [{id,name,addr,color,icon}]
 let debiti = [];           // [{id,desc,cat,total,year,notes,payments:[]}]
-let oneriManual = [];      // voci manuali oneri (TARI, acqua, ecc.)
+let oneriManual = [];      // voci manuali oneri
+let anagrafica = [];       // [{id,nome,ruolo,dataDal,dataAl,telefono,email,note}]
+                           // ruolo: 'proprietario'|'inquilino'|'ex_inquilino' (TARI, acqua, ecc.)
 let oneriOverrides = {};   // {debtId_payId: {stato, inquilino, notes}} overrides manuali
 let propPayments = [];     // [{id,name,amount,date,method,notes,files:[]}]
 let proprietari = [];      // [string] nomi auto-popolati
@@ -975,6 +1021,7 @@ function saveData(){
   localStorage.setItem('condo_'+currentCondoId+'_deadlines', JSON.stringify(deadlines));
   localStorage.setItem('condo_'+currentCondoId+'_debiti', JSON.stringify(debiti));
   localStorage.setItem('condo_'+currentCondoId+'_oneri_manual', JSON.stringify(oneriManual));
+  localStorage.setItem('condo_'+currentCondoId+'_anagrafica', JSON.stringify(anagrafica));
   localStorage.setItem('condo_'+currentCondoId+'_oneri_overrides', JSON.stringify(oneriOverrides));
   localStorage.setItem('condo_'+currentCondoId+'_prop', JSON.stringify(propPayments));
   localStorage.setItem('condo_'+currentCondoId+'_proprietari', JSON.stringify(proprietari));
@@ -989,6 +1036,7 @@ function loadData(condoId){
   try{ deadlines = JSON.parse(localStorage.getItem('condo_'+condoId+'_deadlines'))||[]; }catch(e){ deadlines=[]; }
   try{ debiti = JSON.parse(localStorage.getItem('condo_'+condoId+'_debiti'))||[]; }catch(e){ debiti=[]; }
   try{ oneriManual = JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_manual'))||[]; }catch(e){ oneriManual=[]; }
+  try{ anagrafica = JSON.parse(localStorage.getItem('condo_'+condoId+'_anagrafica'))||[]; }catch(e){ anagrafica=[]; }
   try{ oneriOverrides = JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_overrides'))||{}; }catch(e){ oneriOverrides={}; }
   try{ propPayments = JSON.parse(localStorage.getItem('condo_'+condoId+'_prop'))||[]; }catch(e){ propPayments=[]; }
   try{ proprietari = JSON.parse(localStorage.getItem('condo_'+condoId+'_proprietari'))||[]; }catch(e){ proprietari=[]; }
@@ -1173,6 +1221,7 @@ function navigate(view){
   if(view==='entrate')   renderList('entrate');
   if(view==='uscite')    renderList('uscite');
   if(view==='tutti')     renderList('tutti');
+  if(view==='anagrafica') renderAnagrafica();
   if(view==='debiti')    renderDebiti();
   if(view==='proprietari') renderProprietari();
   if(view==='bilancio')  renderBilancio();
@@ -1436,9 +1485,20 @@ function renderOneri(){
   const inquilini = condo?.inquilini || [];
 
   // ── Helper: is this payer a tenant? ──
-  function isTenant(nome){ 
+  function isTenant(nome, dataRif){ 
     if(!nome) return false;
+    // Use anagrafica if available
+    if(anagrafica.length){
+      return isInquilino(nome, dataRif);
+    }
+    // Fallback to condo.inquilini
     return inquilini.some(inq => inq.toLowerCase() === nome.toLowerCase());
+  }
+
+  function isPropOwner(nome){
+    if(!nome) return false;
+    if(anagrafica.length) return isProprietario(nome);
+    return ['audino giovanni','audino giuliano'].includes(nome.toLowerCase());
   }
 
   // ── Build auto-items from debiti ──
@@ -1450,8 +1510,15 @@ function renderOneri(){
     d.payments.forEach(p=>{
       const key = d.id + '_' + p.id;
       const override = oneriOverrides[key] || {};
-      // Determine auto-stato
-      let autoStato = isTenant(p.pagante) ? 'riscosso' : 'da_riscuotere';
+      // Determine auto-stato based on who paid
+      let autoStato;
+      if(isTenant(p.pagante, p.date)){
+        autoStato = 'riscosso';
+      } else if(isPropOwner(p.pagante)){
+        autoStato = 'a_carico_proprietari';
+      } else {
+        autoStato = 'da_riscuotere';
+      }
       const stato = override.stato || autoStato;
       const inquilino = override.inquilino || p.pagante || '';
       const notes = override.notes || p.notes || '';
@@ -1508,6 +1575,7 @@ function renderOneri(){
   const totDaRiscuotere = allItems.filter(x=>x.stato==='da_riscuotere').reduce((s,x)=>s+(+x.amount),0);
   const totRiscosso = allItems.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
   const totParziale = allItems.filter(x=>x.stato==='parziale').reduce((s,x)=>s+(+x.amount),0);
+  const totProp = allItems.filter(x=>x.stato==='a_carico_proprietari').reduce((s,x)=>s+(+x.amount),0);
 
   // Group by category
   const byCat = {};
@@ -1519,6 +1587,7 @@ function renderOneri(){
   let html = `<div class="stats-grid" style="margin-bottom:20px;">
     <div class="stat-card"><div class="stat-label">Da riscuotere</div><div class="stat-value red">${fmt(totDaRiscuotere)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='da_riscuotere').length} voci</div></div>
     <div class="stat-card"><div class="stat-label">Riscosso</div><div class="stat-value green">${fmt(totRiscosso)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='riscosso').length} voci</div></div>
+    ${totProp>0?`<div class="stat-card"><div class="stat-label">A carico proprietari</div><div class="stat-value blue">${fmt(totProp)}</div><div class="stat-delta">Pregresso coperto</div></div>`:''}
     ${totParziale>0?`<div class="stat-card"><div class="stat-label">Parziale</div><div class="stat-value amber">${fmt(totParziale)}</div></div>`:''}
   </div>`;
 
@@ -1537,8 +1606,8 @@ function renderOneri(){
         <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;">${fmt(catRisc)} / ${fmt(catTot)}</span>
       </div>
       ${items.sort((a,b)=>a.date.localeCompare(b.date)).map(item=>{
-        const statoColor = item.stato==='riscosso'?'var(--green)':item.stato==='parziale'?'var(--amber)':'var(--red)';
-        const statoLabel = item.stato==='riscosso'?'✓ Riscosso':item.stato==='parziale'?'◑ Parziale':'⏳ Da riscuotere';
+        const statoColor = item.stato==='riscosso'?'var(--green)':item.stato==='parziale'?'var(--amber)':item.stato==='a_carico_proprietari'?'var(--blue)':'var(--red)';
+        const statoLabel = item.stato==='riscosso'?'✓ Riscosso':item.stato==='parziale'?'◑ Parziale':item.stato==='a_carico_proprietari'?'🏠 Prop.':' ⏳ Da riscuotere';
         const autoTag = item.source==='debt' && !item.isOverridden ? 
           `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--blue-bg);color:var(--blue);margin-left:4px;">auto</span>` : '';
         const manualTag = item.source==='manual' ?
@@ -1628,7 +1697,15 @@ function openOneriEdit(itemId, source){
   document.getElementById('oe-stato').value = item.stato||'da_riscuotere';
   document.getElementById('oe-inquilino').value = item.inquilino||'';
   document.getElementById('oe-notes').value = item.notes||'';
-  document.getElementById('oe-desc').textContent = source==='manual' ? (item.desc||'Voce manuale') : itemId;
+  // Find better description for debt items
+  let oeDesc = source==='manual' ? (item.desc||'Voce manuale') : '';
+  if(source==='debt'){
+    const parts = itemId.split('_');
+    const dbt = debiti.find(x=>x.id===parts[0]);
+    const pay = dbt?.payments.find(x=>x.id===parts.slice(1).join('_'));
+    oeDesc = dbt ? dbt.desc + (pay ? ' — ' + fmtDate(pay.date) + ' ' + fmt(pay.amount) : '') : itemId;
+  }
+  document.getElementById('oe-desc').textContent = oeDesc;
   // Populate datalist
   const inq = currentCondo()?.inquilini||[];
   const dl = document.getElementById('oe-inq-list');
@@ -2628,6 +2705,195 @@ function doImport(){
 }
 
 
+
+// ══ ANAGRAFICA ══
+const RUOLO_CFG = {
+  inquilino:    {label:'Inquilino attivo', icon:'🏠', color:'var(--green)',  bg:'var(--green-bg)'},
+  ex_inquilino: {label:'Ex inquilino',     icon:'📁', color:'var(--text-3)', bg:'var(--bg)'},
+  proprietario: {label:'Proprietario',     icon:'🔑', color:'var(--blue)',   bg:'var(--blue-bg)'},
+};
+
+function getInquiliniAttivi(dataRif){
+  // Returns names of active tenants at a given date (YYYY-MM-DD)
+  const d = dataRif || new Date().toISOString().split('T')[0];
+  return anagrafica
+    .filter(p => p.ruolo === 'inquilino' && p.dal <= d && (!p.al || p.al >= d))
+    .map(p => p.nome);
+}
+
+function getProprietari(){
+  return anagrafica.filter(p => p.ruolo === 'proprietario').map(p => p.nome);
+}
+
+function isInquilino(nome, dataRif){
+  if(!nome) return false;
+  const inq = getInquiliniAttivi(dataRif);
+  return inq.some(n => n.toLowerCase() === nome.toLowerCase());
+}
+
+function isProprietario(nome){
+  if(!nome) return false;
+  const props = getProprietari();
+  // Also check Audino hardcoded as fallback
+  if(['audino giovanni','audino giuliano'].includes(nome.toLowerCase())) return true;
+  return props.some(n => n.toLowerCase() === nome.toLowerCase());
+}
+
+function openAnagraficaModal(editId){
+  const p = editId ? anagrafica.find(x=>x.id===editId) : null;
+  document.getElementById('modal-anag-title').textContent = editId ? 'Modifica persona' : 'Aggiungi persona';
+  document.getElementById('an-nome').value = p ? p.nome : '';
+  document.getElementById('an-ruolo').value = p ? p.ruolo : 'inquilino';
+  document.getElementById('an-dal').value = p ? (p.dal||'') : '';
+  document.getElementById('an-al').value = p ? (p.al||'') : '';
+  document.getElementById('an-tel').value = p ? (p.tel||'') : '';
+  document.getElementById('an-email').value = p ? (p.email||'') : '';
+  document.getElementById('an-note').value = p ? (p.note||'') : '';
+  document.getElementById('an-pregresso').value = p ? (p.pregresso||'') : '';
+  document.getElementById('an-id').value = editId||'';
+  onAnRuoloChange(p ? p.ruolo : 'inquilino');
+  document.getElementById('modal-anagrafica').classList.add('open');
+  setTimeout(()=>document.getElementById('an-nome').focus(),100);
+}
+
+function onAnRuoloChange(ruolo){
+  const pg = document.getElementById('an-pregresso-group');
+  if(pg) pg.style.display = ruolo === 'ex_inquilino' ? 'flex' : 'none';
+}
+
+function saveAnagrafica(){
+  const nome = document.getElementById('an-nome').value.trim();
+  if(!nome){ showToast('Inserisci nome e cognome'); return; }
+  const editId = document.getElementById('an-id').value;
+  const id = editId || uid();
+  const ruolo = document.getElementById('an-ruolo').value;
+  const persona = {
+    id, nome, ruolo,
+    dal: document.getElementById('an-dal').value,
+    al: document.getElementById('an-al').value,
+    tel: document.getElementById('an-tel').value.trim(),
+    email: document.getElementById('an-email').value.trim(),
+    note: document.getElementById('an-note').value.trim(),
+    pregresso: ruolo==='ex_inquilino' ? (parseFloat(document.getElementById('an-pregresso').value)||0) : 0,
+  };
+  if(editId){ const idx=anagrafica.findIndex(x=>x.id===editId); if(idx!==-1) anagrafica[idx]=persona; }
+  else anagrafica.push(persona);
+  // Auto-sync inquilini to condo
+  syncInquiliniToCondo();
+  save();
+  closeModal('modal-anagrafica');
+  showToast(editId ? 'Persona aggiornata' : 'Persona aggiunta');
+  renderAnagrafica();
+}
+
+function deleteAnagrafica(id){
+  const p = anagrafica.find(x=>x.id===id);
+  if(!confirm('Eliminare ' + (p?.nome||'questa persona') + '?')) return;
+  anagrafica = anagrafica.filter(x=>x.id!==id);
+  syncInquiliniToCondo();
+  save(); renderAnagrafica();
+}
+
+function syncInquiliniToCondo(){
+  // Keep condo.inquilini in sync with active tenants for backward compat
+  const condo = currentCondo();
+  if(condo){
+    condo.inquilini = getInquiliniAttivi(new Date().toISOString().split('T')[0]);
+    saveCondos();
+  }
+}
+
+function renderAnagrafica(){
+  const el = document.getElementById('anagrafica-content');
+  if(!el) return;
+
+  // Pre-populate with default data for this condo if empty
+  if(!anagrafica.length){
+    el.innerHTML = `
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="prePopulateAnagrafica()">📋 Precompila con dati noti</button>
+      </div>
+      <div class="empty-state"><div class="empty-state-icon">👥</div>
+        <h3>Nessuna persona</h3>
+        <p>Aggiungi proprietari e inquilini per abilitare la sincronizzazione automatica degli Oneri</p>
+      </div>`;
+    return;
+  }
+
+  const groups = {
+    proprietario: anagrafica.filter(p=>p.ruolo==='proprietario'),
+    inquilino: anagrafica.filter(p=>p.ruolo==='inquilino'),
+    ex_inquilino: anagrafica.filter(p=>p.ruolo==='ex_inquilino'),
+  };
+  const totPreg = anagrafica.filter(p=>p.ruolo==='ex_inquilino').reduce((s,p)=>s+(+p.pregresso||0),0);
+
+  let html = '';
+
+  // Stats
+  html += `<div class="stats-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-label">Proprietari</div><div class="stat-value blue">${groups.proprietario.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Inquilini attivi</div><div class="stat-value green">${groups.inquilino.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Ex inquilini</div><div class="stat-value" style="color:var(--text-3)">${groups.ex_inquilino.length}</div></div>
+    ${totPreg>0?`<div class="stat-card"><div class="stat-label">Pregresso coperto da proprietari</div><div class="stat-value red">${fmt(totPreg)}</div></div>`:''}
+  </div>`;
+
+  ['proprietario','inquilino','ex_inquilino'].forEach(ruolo=>{
+    const list = groups[ruolo];
+    if(!list.length) return;
+    const cfg = RUOLO_CFG[ruolo];
+    html += `<div class="card" style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:12px;">${cfg.icon} ${cfg.label}${list.length>1?'  ('+list.length+')':''}</div>
+      ${list.map(p=>{
+        const initials = p.nome.split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+        const avatarColor = ['#2d6a4f','#1a4a8a','#b35c00','#6b3fa0','#c0392b','#1a7a7a'][p.nome.length%6];
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="width:36px;height:36px;border-radius:50%;background:${avatarColor};color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;">${p.nome}</div>
+            <div style="font-size:11px;color:var(--text-3);">
+              ${p.dal?'Dal '+fmtDate(p.dal):''}${p.al?' al '+fmtDate(p.al):''}
+              ${p.tel?' · '+p.tel:''}${p.email?' · '+p.email:''}
+            </div>
+            ${p.pregresso>0?`<div style="font-size:11px;color:var(--amber);margin-top:2px;">Pregresso a carico proprietari: ${fmt(p.pregresso)}</div>`:''}
+            ${p.note?`<div style="font-size:11px;color:var(--text-3);margin-top:2px;">${p.note}</div>`:''}
+          </div>
+          <span style="font-size:10px;padding:3px 8px;border-radius:10px;background:${cfg.bg};color:${cfg.color};font-weight:600;">${cfg.label}</span>
+          <div style="display:flex;gap:4px;">
+            <button class="tx-btn" onclick="openAnagraficaModal('${p.id}')">✎</button>
+            <button class="tx-btn del" onclick="deleteAnagrafica('${p.id}')">✕</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  html += `<div style="margin-top:4px;"><button class="btn btn-ghost btn-sm" onclick="prePopulateAnagrafica()">📋 Precompila dati noti</button></div>`;
+  el.innerHTML = html;
+}
+
+function prePopulateAnagrafica(){
+  if(anagrafica.length && !confirm('Aggiungere i dati precompilati? Le persone già presenti non verranno duplicate.')) return;
+  const existing = anagrafica.map(p=>p.nome.toLowerCase());
+  const defaults = [
+    {nome:'Audino Giovanni',   ruolo:'proprietario', dal:'2020-01-01', al:'', tel:'', email:'', note:'', pregresso:0},
+    {nome:'Audino Giuliano',   ruolo:'proprietario', dal:'2020-01-01', al:'', tel:'', email:'', note:'', pregresso:0},
+    {nome:'Capano Aurora',     ruolo:'ex_inquilino', dal:'2020-01-01', al:'2025-12-31', tel:'', email:'', note:'Ex inquilina — pregresso a carico proprietari', pregresso:0},
+    {nome:'Capponi Roberta',   ruolo:'ex_inquilino', dal:'2024-01-01', al:'2025-12-31', tel:'', email:'', note:'Ex inquilina', pregresso:0},
+    {nome:'Bracony Marcella',  ruolo:'ex_inquilino', dal:'2020-01-01', al:'2025-12-31', tel:'', email:'', note:'Intestataria estratto conto', pregresso:0},
+    {nome:'Papini Furio',      ruolo:'inquilino',    dal:'2026-05-01', al:'', tel:'', email:'', note:'Nuovo inquilino da maggio 2026', pregresso:0},
+    {nome:'Barile Denise Tindara', ruolo:'inquilino',dal:'2026-05-01', al:'', tel:'', email:'', note:'Nuovo inquilino da maggio 2026', pregresso:0},
+    {nome:'Turiaco Gabriele',  ruolo:'inquilino',    dal:'2026-05-01', al:'', tel:'', email:'', note:'Nuovo inquilino da maggio 2026', pregresso:0},
+  ];
+  defaults.forEach(d=>{
+    if(!existing.includes(d.nome.toLowerCase())){
+      anagrafica.push({...d, id:uid()});
+    }
+  });
+  syncInquiliniToCondo();
+  save(); renderAnagrafica();
+  showToast('Anagrafica precompilata');
+}
+
 // ══ EXPORT EXCEL ══
 function exportXLSX(){
   if(!window.XLSX){ showToast('Libreria Excel non ancora caricata, riprova'); return; }
@@ -2837,7 +3103,7 @@ async function driveSaveCondos(){
 async function driveSaveData(manual=false){
   if(!driveAccessToken||!currentCondoId) return;
   const c=currentCondo();
-  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,oneriManual,oneriOverrides,condoName:c?.name,savedAt:new Date().toISOString()}));
+  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,oneriManual,oneriOverrides,anagrafica,condoName:c?.name,savedAt:new Date().toISOString()}));
   const t=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   if(ok){ setDriveStatus('connected',`Salvato ${t}`); if(manual) showToast('✓ Salvato su Drive'); }
   else { setDriveStatus('error','Errore salvataggio'); if(manual) showToast('Errore salvataggio Drive'); }
@@ -2870,7 +3136,7 @@ async function driveLoadData(condoId,silent=false){
     if(data&&data.txs){
       txs=data.txs; deadlines=data.deadlines||[];
       debiti=data.debiti||[]; propPayments=data.propPayments||[]; proprietari=data.proprietari||[];
-      oneriManual=data.oneriManual||[]; oneriOverrides=data.oneriOverrides||{};
+      oneriManual=data.oneriManual||[]; oneriOverrides=data.oneriOverrides||{}; anagrafica=data.anagrafica||[];
       localStorage.setItem('condo_'+condoId+'_txs',JSON.stringify(txs));
       localStorage.setItem('condo_'+condoId+'_deadlines',JSON.stringify(deadlines));
       localStorage.setItem('condo_'+condoId+'_debiti',JSON.stringify(debiti));
