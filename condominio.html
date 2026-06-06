@@ -1390,13 +1390,23 @@ function editTx(id){
   const t=txs.find(x=>x.id===id); if(!t) return;
   editingId=id; currentType=t.type;
   document.getElementById('modal-tx-title').textContent='Modifica movimento';
-  document.getElementById('f-desc').value=t.desc; document.getElementById('f-amount').value=t.amount;
-  document.getElementById('f-date').value=t.date; document.getElementById('f-cat').value=t.cat;
-  document.getElementById('f-method').value=t.method; document.getElementById('f-party').value=t.party||'';
-  document.getElementById('f-notes').value=t.notes||''; document.getElementById('f-id').value=id;
-  selectedFileData=t.fileData||null; updateTypeToggle(t.type);
-  if(t.fileData){ document.getElementById('file-preview-area').innerHTML=`<div class="file-preview">${t.fileData.startsWith('data:image')?`<img src="${t.fileData}" alt="">`:'<span style="font-size:24px">📄</span>'}<span class="file-preview-name">${t.fileName||'Allegato'}</span><button class="file-preview-remove" onclick="removeFile()">✕</button></div>`; }
-  else document.getElementById('file-preview-area').innerHTML='';
+  document.getElementById('f-desc').value=t.desc;
+  document.getElementById('f-amount').value=t.amount;
+  document.getElementById('f-date').value=t.date;
+  document.getElementById('f-cat').value=t.cat;
+  document.getElementById('f-method').value=t.method||'';
+  document.getElementById('f-party').value=t.cat==='prop_payment'?'':(t.party||'');
+  document.getElementById('f-notes').value=t.notes||'';
+  document.getElementById('f-id').value=id;
+  // Handle prop_payment name field
+  const pg=document.getElementById('prop-name-group');
+  if(pg){ pg.style.display=t.cat==='prop_payment'?'flex':'none'; }
+  if(t.cat==='prop_payment'){ document.getElementById('f-prop-name').value=t.party||''; populatePropDatalist('f-prop-list'); }
+  // Load files
+  selectedFiles = t.files ? [...t.files] : [];
+  updateTypeToggle(t.type);
+  renderFilePreviews('file-preview-area', selectedFiles, true);
+  closeDetail();
   document.getElementById('modal-tx').classList.add('open');
 }
 function deleteTx(id){
@@ -2186,7 +2196,10 @@ function saveDebtPayment(){
   const totalPaid = d.payments.reduce((s,p)=>s+(+p.amount),0);
   if(totalPaid >= d.total) d.open = false;
   // Auto-create uscita per importo versato al condominio
-  const txCat = d.cat==='riscaldamento'?'riscaldamento_cond': d.cat==='condominio_ord'?'condominio': 'manutenzione';
+  // From May 2026: owner payments are real expenses (not condOwned)
+  const isPost2026 = date >= '2026-05-01';
+  const txCat = isPost2026 ? 'manutenzione' : 
+    (d.cat==='riscaldamento'?'riscaldamento_cond': d.cat==='condominio_ord'?'condominio': 'manutenzione');
   const tx = {
     id: uid(), type:'uscita',
     desc: 'Pagamento: ' + d.desc,
@@ -2520,9 +2533,7 @@ function saveTx(){
     party: cat==='prop_payment' ? document.getElementById('f-prop-name').value.trim() : document.getElementById('f-party').value.trim(),
     notes:document.getElementById('f-notes').value.trim(),
     files: selectedFiles.length ? [...selectedFiles] : (existing?.files||[]),
-    // keep backward compat
-    fileData: selectedFiles.length ? selectedFiles[0].data : (existing?.fileData||null),
-    fileName: selectedFiles.length ? selectedFiles[0].name : (existing?.fileName||null),
+    fileData: null, fileName: null,
   };
   if(editingId){ const idx=txs.findIndex(t=>t.id===editingId); if(idx!==-1) txs[idx]=tx; }
   else txs.push(tx);
@@ -2798,11 +2809,12 @@ function doImport(){
     debiti.push(debt);
     // Create uscite in bilancio for historical payments
     v.payments.forEach(p=>{
-      const txCat = v.cat==='riscaldamento'?'riscaldamento_cond':
-                    v.cat==='condominio_ord'?'condominio':
-                    v.cat==='bonifica'?'manutenzione':
+      // Use non-condOwned categories so payments appear in owner's bilancio
+      const txCat = v.cat==='bonifica'?'manutenzione':
                     v.cat==='antincendio'?'manutenzione':
-                    v.cat==='portone'?'manutenzione':'manutenzione';
+                    v.cat==='portone'?'manutenzione':
+                    v.cat==='riscaldamento'?'manutenzione':
+                    v.cat==='condominio_ord'?'manutenzione':'manutenzione';
       const tx = {
         id: uid(),
         type: 'uscita',
