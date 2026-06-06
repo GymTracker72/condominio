@@ -2102,15 +2102,7 @@ function renderDebtFilePreviews(containerId, filesArr){
   }).join('');
 }
 
-// Override renderFilePreviews to handle 4th arg (arrName)
-const _origRenderFilePreviews = renderFilePreviews;
-function renderFilePreviews(containerId, filesArr, editable, arrName){
-  if(arrName === 'debtPayFiles' || arrName === 'epFiles'){
-    renderDebtFilePreviews(containerId, filesArr);
-    return;
-  }
-  _origRenderFilePreviews(containerId, filesArr, editable);
-}
+// renderFilePreviews override removed - merged into main function
 
 // ══ DEBITI CONDOMINIO ══
 const DEBT_CATS = {
