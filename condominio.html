@@ -1960,11 +1960,11 @@ const ESTRATTO_VOCI = [
     cat: 'portone',
     year: '2024',
     total: 120.00,
-    notes: '2 rate da €60 — Scala A1',
+    notes: '2 rate da 60 euro — Scala A1',
     saldato: true,
     payments: [
-      {id:'imp_p1', amount:60.00, date:'2024-03-29', method:'bonifico', notes:'1ª rata portone', pagante:'Audino Giuliano'},
-      {id:'imp_p2', amount:60.00, date:'2024-04-30', method:'bonifico', notes:'2ª rata portone', pagante:'Audino Giuliano'},
+      {id:'imp_p1', amount:60.00, date:'2024-03-29', method:'bonifico', notes:'1a rata portone', pagante:'Audino Giuliano', commission:0},
+      {id:'imp_p2', amount:60.00, date:'2024-04-30', method:'bonifico', notes:'2a rata portone', pagante:'Audino Giuliano', commission:0},
     ]
   },
   {
@@ -1973,10 +1973,10 @@ const ESTRATTO_VOCI = [
     cat: 'bonifica',
     year: '2025',
     total: 543.06,
-    notes: '4 rate da €136 meno conguaglio credito €0,94 — residuo €458,06',
+    notes: '4 rate da 136 euro meno conguaglio credito 0,94 — residuo 458,06',
     saldato: false,
     payments: [
-      {id:'imp_b1', amount:85.00, date:'2025-01-15', method:'bonifico', notes:'1ª rata bonifica amianto (parziale)', pagante:'Capano Aurora'},
+      {id:'imp_b1', amount:85.00, date:'2025-01-15', method:'bollettino', notes:'1a rata bonifica amianto (parziale)', pagante:'Capano Aurora', commission:2.50},
     ]
   },
   {
@@ -1985,19 +1985,19 @@ const ESTRATTO_VOCI = [
     cat: 'condominio_ord',
     year: '2025',
     total: 1020.00,
-    notes: '12 rate da €85 — residuo €100,00 (rate feb e dic non pagate, crediti da sovrappagamenti)',
+    notes: '12 rate da 85 euro — residuo 100 euro',
     saldato: false,
     payments: [
-      {id:'imp_c1', amount:85.00,  date:'2025-01-15', method:'bonifico', notes:'1ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c2', amount:85.00,  date:'2025-03-15', method:'bonifico', notes:'3ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c3', amount:85.00,  date:'2025-04-15', method:'bonifico', notes:'4ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c4', amount:100.00, date:'2025-05-15', method:'bonifico', notes:'5ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c5', amount:100.00, date:'2025-06-15', method:'bonifico', notes:'6ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c6', amount:105.00, date:'2025-07-15', method:'bonifico', notes:'7ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c7', amount:105.00, date:'2025-08-15', method:'bonifico', notes:'8ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c8', amount:85.00,  date:'2025-09-15', method:'bonifico', notes:'9ª rata condominio 2025', pagante:'Capano Aurora'},
-      {id:'imp_c9', amount:85.00,  date:'2025-10-15', method:'bonifico', notes:'10ª rata condominio 2025', pagante:'Capponi Roberta'},
-      {id:'imp_c10',amount:85.00,  date:'2025-11-15', method:'bonifico', notes:'11ª rata condominio 2025', pagante:'Capponi Roberta'},
+      {id:'imp_c1',  amount:85.00,  date:'2025-01-15', method:'bollettino', notes:'1a rata condominio 2025',                pagante:'Capano Aurora',   commission:2.50},
+      {id:'imp_c2',  amount:85.00,  date:'2025-03-01', method:'bollettino', notes:'3a rata condominio 2025 (mar-apr 2025)', pagante:'Capano Aurora',   commission:2.50},
+      {id:'imp_c3',  amount:85.00,  date:'2025-04-15', method:'bollettino', notes:'4a rata condominio 2025',                pagante:'Capano Aurora',   commission:2.50},
+      {id:'imp_c4',  amount:100.00, date:'2025-05-15', method:'bollettino', notes:'5a rata condominio 2025',                pagante:'Capano Aurora',   commission:2.50},
+      {id:'imp_c5',  amount:100.00, date:'2025-06-15', method:'bollettino', notes:'6a rata condominio 2025',                pagante:'Capano Aurora',   commission:2.50},
+      {id:'imp_c6',  amount:105.00, date:'2025-07-15', method:'bonifico',   notes:'7a rata condominio 2025',                pagante:'Audino Giuliano', commission:0},
+      {id:'imp_c7',  amount:105.00, date:'2025-08-15', method:'bonifico',   notes:'8a rata condominio 2025',                pagante:'Audino Giuliano', commission:0},
+      {id:'imp_c8',  amount:85.00,  date:'2025-09-15', method:'bonifico',   notes:'9a rata condominio 2025',                pagante:'Audino Giuliano', commission:0},
+      {id:'imp_c9',  amount:85.00,  date:'2025-10-25', method:'bollettino', notes:'10a rata condominio 2025',               pagante:'Capponi Roberta', commission:2.50},
+      {id:'imp_c10', amount:85.00,  date:'2025-11-15', method:'bollettino', notes:'11a rata condominio 2025',               pagante:'Capponi Roberta', commission:2.50},
     ]
   },
   {
@@ -2006,11 +2006,11 @@ const ESTRATTO_VOCI = [
     cat: 'condominio_ord',
     year: '2024',
     total: 7734.78,
-    notes: 'Residuo €3.778,60 — versato parzialmente €3.956,18',
+    notes: 'Residuo 3778,60 — versato parzialmente 3956,18',
     saldato: false,
     payments: [
-      {id:'imp_cg1', amount:630.00,  date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti non contabilizzati 23/24', pagante:'Audino Giuliano'},
-      {id:'imp_cg2', amount:3326.18, date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti anno 22-23 gestione Coviello', pagante:'Audino Giuliano'},
+      {id:'imp_cg1', amount:630.00,   date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti non contabilizzati 23/24', pagante:'Audino Giuliano', commission:0},
+      {id:'imp_cg2', amount:3326.18,  date:'2025-07-08', method:'bonifico', notes:'Conguaglio 2024 — versamenti anno 22-23 gestione Coviello', pagante:'Audino Giuliano', commission:0},
     ]
   },
   {
@@ -2019,7 +2019,7 @@ const ESTRATTO_VOCI = [
     cat: 'riscaldamento',
     year: '2026',
     total: 1505.00,
-    notes: '5 rate da €301 scad. dic-apr — residuo €1.505,00',
+    notes: '5 rate da 301 euro scad. dic-apr — residuo 1505,00',
     saldato: false,
     payments: []
   },
@@ -2029,10 +2029,10 @@ const ESTRATTO_VOCI = [
     cat: 'riscaldamento',
     year: '2025',
     total: 3261.11,
-    notes: 'Residuo €2.230,61',
+    notes: 'Residuo 2230,61',
     saldato: false,
     payments: [
-      {id:'imp_cr1', amount:1030.50, date:'2025-12-09', method:'bonifico', notes:'Conguaglio risc. 24/25', pagante:'Capano Aurora'},
+      {id:'imp_cr1', amount:1030.50, date:'2025-12-09', method:'bollettino', notes:'Conguaglio risc. 24/25', pagante:'Capano Aurora', commission:2.50},
     ]
   },
   {
@@ -2041,7 +2041,7 @@ const ESTRATTO_VOCI = [
     cat: 'condominio_ord',
     year: '2026',
     total: 320.00,
-    notes: '4 rate da €80 gen-apr — residuo €320,00 (tutte da pagare)',
+    notes: '4 rate da 80 euro gen-apr — residuo 320,00 (tutte da pagare)',
     saldato: false,
     payments: []
   },
