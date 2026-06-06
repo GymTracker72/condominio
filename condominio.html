@@ -2049,11 +2049,7 @@ function toggleImportSel(id, checked){
 }
 
 function doResetImport(){
-  if(!confirm('Questo cancellerà tutte le voci debitorie importate dall'estratto conto e le ricrea con i dati corretti.
-
-I pagamenti manuali aggiunti successivamente andranno persi.
-
-Continuare?')) return;
+  if(!confirm("Questo cancellera tutte le voci debitorie importate e le ricrea con i dati corretti.\n\nI pagamenti manuali aggiunti andranno persi.\n\nContinuare?")) return;
   // Remove all debiti that came from import
   const importIds = ESTRATTO_VOCI.map(v=>v.id);
   debiti = debiti.filter(d=>!importIds.includes(d.importId));
@@ -2064,7 +2060,7 @@ Continuare?')) return;
   ESTRATTO_VOCI.forEach(v=>{ importSelected[v.id]=true; });
   save();
   renderImportList();
-  showToast('Voci reimpostate — ora clicca Importa selezionati');
+  showToast("Voci reimpostate — ora clicca Importa selezionati");
 }
 
 function doImport(){
