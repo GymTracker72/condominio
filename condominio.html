@@ -1995,17 +1995,19 @@ function readFileForUpload(file, cb){
       showToast('Connetti Google Drive per allegare PDF');
       return;
     }
-    // With Drive connected: read and upload immediately
+    // Show loading indicator
+    setDriveStatus('syncing','Caricamento PDF su Drive...');
     const reader = new FileReader();
     reader.onload = e => {
-      // Upload to Drive right away
-      setDriveStatus('syncing','Caricamento PDF...');
       uploadFileToDrive(e.target.result, file.name, file.type).then(driveRef=>{
         if(driveRef){
-          setDriveStatus('connected','PDF caricato su Drive');
-          cb(driveRef.url ? driveRef.url : e.target.result, file.name, file.type, driveRef);
+          setDriveStatus('connected','PDF salvato su Drive');
+          showToast('PDF caricato su Drive');
+          // Pass ONLY driveRef - no base64 data
+          cb(null, file.name, file.type, driveRef);
         } else {
-          showToast('Errore caricamento PDF su Drive');
+          setDriveStatus('error','Errore upload PDF');
+          showToast('Errore caricamento PDF — riprova');
         }
       });
     };
@@ -2019,10 +2021,9 @@ function onDebtFilesSelect(input){
     if(debtPayFiles.length >= 3) return;
     readFileForUpload(file, (data, name, type, driveRef)=>{
       if(driveRef){
-        // PDF already on Drive
-        debtPayFiles.push(driveRef);
-      } else {
-        debtPayFiles.push({data, name, type, _pending:false});
+        debtPayFiles.push({driveFileId:driveRef.driveFileId, name:driveRef.name, type:driveRef.type, url:driveRef.url});
+      } else if(data){
+        debtPayFiles.push({data, name, type});
       }
       renderFilePreviews('dp-files-preview', debtPayFiles, true, 'debtPayFiles');
     });
@@ -2036,9 +2037,9 @@ function onEpFilesSelect(input){
     if(epFiles.length >= 3) return;
     readFileForUpload(file, (data, name, type, driveRef)=>{
       if(driveRef){
-        epFiles.push(driveRef);
-      } else {
-        epFiles.push({data, name, type, _pending:false});
+        epFiles.push({driveFileId:driveRef.driveFileId, name:driveRef.name, type:driveRef.type, url:driveRef.url});
+      } else if(data){
+        epFiles.push({data, name, type});
       }
       renderFilePreviews('ep-files-preview', epFiles, true, 'epFiles');
     });
@@ -2063,9 +2064,9 @@ function renderDebtFilePreviews(containerId, filesArr){
     const hasDrive = !!f.driveFileId;
     let thumb;
     if(hasDrive){
-      // Show Drive icon, open from Drive
-      thumb = `<div class="file-thumb-pdf" onclick="openFileRef(${JSON.stringify(f).replace(/"/g,'&quot;')})" title="${f.name} (Drive)">
-        <span style="font-size:10px;color:var(--green)">☁</span>📄</div>`;
+      const driveUrl = f.url || ('https://drive.google.com/file/d/'+f.driveFileId+'/view');
+      thumb = `<div class="file-thumb-pdf" onclick="window.open('${driveUrl}','_blank')" title="${f.name} (su Drive)" style="cursor:pointer;">
+        <span style="font-size:10px;color:var(--green);display:block;">☁</span>📄</div>`;
     } else if(isImg && f.data){
       const key = cacheAndView(f.data);
       thumb = `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}${f._pending?' (in attesa upload)':''}">`;
@@ -2373,16 +2374,15 @@ function savePaymentPagante(){
   const txDesc = 'Pagamento: ' + d.desc;
   const matchTx = txs.find(t=>t.type==='uscita' && t.desc===txDesc && t.date===p.date && Math.abs((+t.amount)-(+p.amount))<0.01 && (t.party===oldPagante||!t.party));
   if(matchTx) matchTx.party = newPagante;
-  if(driveAccessToken && p.files && p.files.some(f=>f._pending)){
-    uploadPendingFiles(p.files).then(uploaded=>{
-      p.files = uploaded;
-      save(); renderDebiti();
-    });
+  // Merge and clean files - only keep Drive refs
+  if(epFiles.length > 0){
+    const existing = (p.files||[]).filter(f=>f.driveFileId);
+    const newDriveFiles = epFiles.filter(f=>f.driveFileId).map(f=>({driveFileId:f.driveFileId,name:f.name,type:f.type,url:f.url}));
+    p.files = [...existing, ...newDriveFiles].slice(0,5);
   }
   save();
   closeModal('modal-edit-pagante');
-  showToast('Salvato: ' + newPagante);
-  if(driveAccessToken && epFiles.some(f=>f._pending)) showToast('Caricamento allegati su Drive...');
+  showToast('Salvato');
   renderDebiti();
 }
 
