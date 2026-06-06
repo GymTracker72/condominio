@@ -660,9 +660,9 @@ textarea{resize:vertical;min-height:70px;}
       <datalist id="ep-pagante-list"></datalist>
     </div>
     <div class="form-group" style="margin-top:12px;">
-      <label>Allegati ricevuta/bonifico (fino a 3)</label>
+      <label>Foto ricevuta/bonifico (fino a 3 — solo immagini)</label>
       <div class="file-zone" onclick="document.getElementById('ep-files').click()">
-        <input type="file" id="ep-files" accept="image/*,.pdf" multiple style="display:none" onchange="onEpFilesSelect(this)">
+        <input type="file" id="ep-files" accept="image/*" multiple style="display:none" onchange="onEpFilesSelect(this)">
         <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF</div>
       </div>
       <div class="files-grid" id="ep-files-preview"></div>
@@ -849,9 +849,9 @@ textarea{resize:vertical;min-height:70px;}
       </div>
     </div>
       <div class="form-group full">
-        <label>Allegati ricevuta/bonifico (fino a 3)</label>
+        <label>Foto ricevuta/bonifico (fino a 3 — solo immagini)</label>
         <div class="file-zone" onclick="document.getElementById('dp-files').click()">
-          <input type="file" id="dp-files" accept="image/*,.pdf" multiple style="display:none" onchange="onDebtFilesSelect(this)">
+          <input type="file" id="dp-files" accept="image/*" multiple style="display:none" onchange="onDebtFilesSelect(this)">
           <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
         </div>
         <div class="files-grid" id="dp-files-preview"></div>
@@ -1865,12 +1865,24 @@ function onFilesSelect(input){
   const files = Array.from(input.files).slice(0,5);
   files.forEach(file=>{
     if(selectedFiles.length>=5) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      selectedFiles.push({data:e.target.result, name:file.name, type:file.type});
-      renderFilePreviews('file-preview-area', selectedFiles, true);
-    };
-    reader.readAsDataURL(file);
+    if(file.type.startsWith('image/')){
+      compressImage(file, 1400, 0.80, (data,name,type)=>{
+        selectedFiles.push({data,name,type});
+        renderFilePreviews('file-preview-area', selectedFiles, true);
+      });
+    } else {
+      // PDF: read as-is but warn if too large
+      const reader = new FileReader();
+      reader.onload = e => {
+        if(e.target.result.length > 2*1024*1024){
+          showToast('PDF troppo grande (max 2MB) — usa una foto');
+          return;
+        }
+        selectedFiles.push({data:e.target.result, name:file.name, type:file.type});
+        renderFilePreviews('file-preview-area', selectedFiles, true);
+      };
+      reader.readAsDataURL(file);
+    }
   });
   input.value='';
 }
@@ -1879,12 +1891,23 @@ function onPropFilesSelect(input){
   const files = Array.from(input.files).slice(0,5);
   files.forEach(file=>{
     if(propSelectedFiles.length>=5) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      propSelectedFiles.push({data:e.target.result, name:file.name, type:file.type});
-      renderFilePreviews('pr-files-preview', propSelectedFiles, true);
-    };
-    reader.readAsDataURL(file);
+    if(file.type.startsWith('image/')){
+      compressImage(file, 1400, 0.80, (data,name,type)=>{
+        propSelectedFiles.push({data,name,type});
+        renderFilePreviews('pr-files-preview', propSelectedFiles, true);
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => {
+        if(e.target.result.length > 2*1024*1024){
+          showToast('PDF troppo grande (max 2MB) — usa una foto');
+          return;
+        }
+        propSelectedFiles.push({data:e.target.result, name:file.name, type:file.type});
+        renderFilePreviews('pr-files-preview', propSelectedFiles, true);
+      };
+      reader.readAsDataURL(file);
+    }
   });
   input.value='';
 }
@@ -1938,16 +1961,32 @@ const _origSaveTx = saveTx;
 let debtPayFiles = [];   // files for new payment modal
 let epFiles = [];        // files for edit-pagante modal
 
+function compressImage(file, maxW, quality, cb){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(canvas.toDataURL('image/jpeg', quality), file.name, 'image/jpeg');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function onDebtFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - debtPayFiles.length);
   files.forEach(file=>{
     if(debtPayFiles.length >= 3) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      debtPayFiles.push({data:e.target.result, name:file.name, type:file.type});
+    compressImage(file, 1200, 0.75, (data, name, type)=>{
+      debtPayFiles.push({data, name, type});
       renderFilePreviews('dp-files-preview', debtPayFiles, true, 'debtPayFiles');
-    };
-    reader.readAsDataURL(file);
+    });
   });
   input.value = '';
 }
@@ -1956,12 +1995,10 @@ function onEpFilesSelect(input){
   const files = Array.from(input.files).slice(0, 3 - epFiles.length);
   files.forEach(file=>{
     if(epFiles.length >= 3) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      epFiles.push({data:e.target.result, name:file.name, type:file.type});
+    compressImage(file, 1200, 0.75, (data, name, type)=>{
+      epFiles.push({data, name, type});
       renderFilePreviews('ep-files-preview', epFiles, true, 'epFiles');
-    };
-    reader.readAsDataURL(file);
+    });
   });
   input.value = '';
 }
