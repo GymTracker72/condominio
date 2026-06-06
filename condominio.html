@@ -217,6 +217,43 @@ textarea{resize:vertical;min-height:70px;}
 .empty-state h3{font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:4px;}
 .empty-state p{font-size:13px;}
 
+
+/* ── DEBITI CONDOMINIO ── */
+.debt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);}
+.debt-card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
+.debt-card-header:hover{background:var(--bg);}
+.debt-card-title{font-size:14px;font-weight:500;}
+.debt-card-subtitle{font-size:11px;color:var(--text-3);margin-top:2px;}
+.debt-progress-bar{height:4px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:8px;}
+.debt-progress-fill{height:100%;border-radius:2px;transition:width .5s ease;background:var(--green);}
+.debt-progress-fill.warning{background:var(--amber);}
+.debt-progress-fill.danger{background:var(--red);}
+.debt-amounts{display:flex;gap:20px;margin-top:4px;}
+.debt-amt{font-size:11px;color:var(--text-3);}
+.debt-amt strong{display:block;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;}
+.debt-amt strong.green{color:var(--green);}
+.debt-amt strong.red{color:var(--red);}
+.debt-amt strong.amber{color:var(--amber);}
+.debt-body{padding:0 18px 14px;}
+.debt-payment-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.debt-payment-row:last-child{border-bottom:none;}
+.debt-summary-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface2);border-top:1px solid var(--border);}
+
+/* ── PROPRIETARI ── */
+.proprietari-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;}
+.proprietari-row:last-child{border-bottom:none;}
+.prop-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0;}
+
+/* ── MULTI FILE ── */
+.files-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.file-thumb{width:60px;height:60px;border-radius:var(--radius-sm);object-fit:cover;border:1px solid var(--border);cursor:pointer;}
+.file-thumb-pdf{width:60px;height:60px;border-radius:var(--radius-sm);background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;}
+.file-item{position:relative;display:inline-block;}
+.file-item-remove{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* ── DATALIST STYLE ── */
+.prop-input-wrap{position:relative;}
+
 /* ── BILANCIO ── */
 .bilancio-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
 .bilancio-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
@@ -342,6 +379,8 @@ textarea{resize:vertical;min-height:70px;}
         <button class="nav-item" onclick="navigate('bilancio')"><span class="icon">⚖</span><span>Bilancio</span></button>
         <button class="nav-item" onclick="navigate('oneri')"><span class="icon">⊛</span><span>Oneri condomini</span></button>
         <button class="nav-item" onclick="navigate('report')"><span class="icon">◫</span><span>Report / 730</span></button>
+        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Debiti condominio</span></button>
+        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">👤</span><span>Proprietari</span></button>
         <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenzario</span></button>
       </div>
     </nav>
@@ -448,6 +487,26 @@ textarea{resize:vertical;min-height:70px;}
       <div id="report-content"></div>
     </div>
 
+
+    <!-- DEBITI CONDOMINIO -->
+    <div id="view-debiti" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Debiti condominio</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
+        <button class="btn btn-primary" onclick="openDebtModal()">+ Nuova voce debitoria</button>
+      </div>
+      <div class="stats-grid" id="debt-stats"></div>
+      <div id="debiti-list"></div>
+    </div>
+
+    <!-- PROPRIETARI -->
+    <div id="view-proprietari" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Proprietari</div><div class="page-subtitle">Versamenti ai proprietari dell'appartamento</div></div>
+        <button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button>
+      </div>
+      <div id="proprietari-content"></div>
+    </div>
+
     <!-- SCADENZE -->
     <div id="view-scadenze" class="view">
       <div class="page-header">
@@ -513,6 +572,7 @@ textarea{resize:vertical;min-height:70px;}
           <option value="acqua_cond">🟠 Acqua conguaglio (condomini)</option>
           <option value="riscaldamento_cond">🟠 Riscaldamento (condomini)</option>
           <option value="utenze">💡 Utenze</option>
+          <option value="prop_payment">💰 Versamento proprietari</option>
           <option value="altro">⬜ Altro</option>
         </select>
       </div>
@@ -527,13 +587,18 @@ textarea{resize:vertical;min-height:70px;}
       </div>
       <div class="form-group full"><label>Controparte (inquilino / ditta)</label><input type="text" id="f-party" placeholder="Es. Mario Rossi, FC Appalti srl..."></div>
       <div class="form-group full"><label>Note</label><textarea id="f-notes" placeholder="Riferimento fattura, note aggiuntive..."></textarea></div>
+      <div class="form-group full" id="prop-name-group" style="display:none">
+        <label>Proprietario</label>
+        <input type="text" id="f-prop-name" list="f-prop-list" placeholder="Nome proprietario" autocomplete="off">
+        <datalist id="f-prop-list"></datalist>
+      </div>
       <div class="form-group full">
-        <label>Allegato (foto ricevuta / fattura)</label>
-        <div class="file-zone" onclick="document.getElementById('f-file').click()">
-          <input type="file" id="f-file" accept="image/*,.pdf" style="display:none" onchange="onFileSelect(this)">
-          <div class="file-zone-text"><strong>Clicca per selezionare</strong> o trascina qui<br><span>JPG, PNG, PDF fino a 10MB</span></div>
+        <label>Allegati fino a 5 (foto / PDF)</label>
+        <div class="file-zone" onclick="document.getElementById('f-files').click()">
+          <input type="file" id="f-files" accept="image/*,.pdf" multiple style="display:none" onchange="onFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> fino a 5 file<br><span>JPG, PNG, PDF</span></div>
         </div>
-        <div id="file-preview-area"></div>
+        <div class="files-grid" id="file-preview-area"></div>
       </div>
     </div>
     <input type="hidden" id="f-id">
@@ -557,6 +622,115 @@ textarea{resize:vertical;min-height:70px;}
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-deadline')">Annulla</button>
       <button class="btn btn-primary" onclick="saveDeadline()">Salva</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Voce debitoria -->
+<div class="modal-overlay" id="modal-debt">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-debt-title">Nuova voce debitoria</div>
+      <button class="modal-close" onclick="closeModal('modal-debt')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="db-desc" placeholder="Es. Riscaldamento 2024-2025, Bonifica amianto..."></div>
+      <div class="form-group full"><label>Categoria</label>
+        <select id="db-cat">
+          <option value="riscaldamento">🔥 Riscaldamento</option>
+          <option value="condominio_ord">🏛 Condominio ordinario</option>
+          <option value="lavori_straord">🔧 Lavori straordinari</option>
+          <option value="bonifica">⚠ Bonifica / Amianto</option>
+          <option value="antincendio">🚒 Lavori antincendio</option>
+          <option value="portone">🚪 Sostituzione portone</option>
+          <option value="altro">📋 Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Importo totale dovuto (€)</label><input type="number" id="db-total" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Anno di riferimento</label>
+        <select id="db-year">
+          <option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2026</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="db-notes" placeholder="Es. Rate mensili da €273, scadenza..."></div>
+    </div>
+    <input type="hidden" id="db-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-debt')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDebt()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Pagamento su debito -->
+<div class="modal-overlay" id="modal-debt-pay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Registra pagamento</div>
+      <button class="modal-close" onclick="closeModal('modal-debt-pay')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="dp-debt-name"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Importo pagato (€)</label><input type="number" id="dp-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Data pagamento</label><input type="date" id="dp-date"></div>
+      <div class="form-group"><label>Metodo</label>
+        <select id="dp-method">
+          <option value="bonifico">Bonifico</option>
+          <option value="contanti">Contanti</option>
+          <option value="rid">RID</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Note</label><input type="text" id="dp-notes" placeholder="Es. 1ª rata..."></div>
+    </div>
+    <input type="hidden" id="dp-debt-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-debt-pay')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDebtPayment()">Registra e crea uscita</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Versamento proprietario -->
+<div class="modal-overlay" id="modal-prop">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-prop-title">Nuovo versamento proprietario</div>
+      <button class="modal-close" onclick="closeModal('modal-prop')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Proprietario</label>
+        <div class="prop-input-wrap">
+          <input type="text" id="pr-name" list="prop-list" placeholder="Nome proprietario (o seleziona)" autocomplete="off">
+          <datalist id="prop-list"></datalist>
+        </div>
+      </div>
+      <div class="form-group"><label>Importo (€)</label><input type="number" id="pr-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="pr-date"></div>
+      <div class="form-group"><label>Metodo</label>
+        <select id="pr-method">
+          <option value="bonifico">Bonifico bancario</option>
+          <option value="contanti">Contanti</option>
+          <option value="assegno">Assegno</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="pr-notes" placeholder="Quota affitto, competenze..."></div>
+      <div class="form-group full">
+        <label>Allegati (fino a 5)</label>
+        <div class="file-zone" onclick="document.getElementById('pr-files').click()">
+          <input type="file" id="pr-files" accept="image/*,.pdf" multiple style="display:none" onchange="onPropFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> fino a 5 file<br><span>JPG, PNG, PDF</span></div>
+        </div>
+        <div class="files-grid" id="pr-files-preview"></div>
+      </div>
+    </div>
+    <input type="hidden" id="pr-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-prop')">Annulla</button>
+      <button class="btn btn-primary" onclick="savePropPayment()">Salva versamento</button>
     </div>
   </div>
 </div>
@@ -600,6 +774,9 @@ const REGIME_INFO = {
 
 // ══ STATE ══
 let condos = [];           // [{id,name,addr,color,icon}]
+let debiti = [];           // [{id,desc,cat,total,year,notes,payments:[]}]
+let propPayments = [];     // [{id,name,amount,date,method,notes,files:[]}]
+let proprietari = [];      // [string] nomi auto-popolati
 let currentCondoId = null; // id condominio attivo
 let txs = [];
 let deadlines = [];
@@ -639,6 +816,9 @@ function saveData(){
   if(!currentCondoId) return;
   localStorage.setItem('condo_'+currentCondoId+'_txs', JSON.stringify(txs));
   localStorage.setItem('condo_'+currentCondoId+'_deadlines', JSON.stringify(deadlines));
+  localStorage.setItem('condo_'+currentCondoId+'_debiti', JSON.stringify(debiti));
+  localStorage.setItem('condo_'+currentCondoId+'_prop', JSON.stringify(propPayments));
+  localStorage.setItem('condo_'+currentCondoId+'_proprietari', JSON.stringify(proprietari));
   if(driveAccessToken){
     clearTimeout(syncTimer);
     setDriveStatus('syncing','Salvataggio...');
@@ -648,6 +828,9 @@ function saveData(){
 function loadData(condoId){
   try{ txs = JSON.parse(localStorage.getItem('condo_'+condoId+'_txs'))||[]; }catch(e){ txs=[]; }
   try{ deadlines = JSON.parse(localStorage.getItem('condo_'+condoId+'_deadlines'))||[]; }catch(e){ deadlines=[]; }
+  try{ debiti = JSON.parse(localStorage.getItem('condo_'+condoId+'_debiti'))||[]; }catch(e){ debiti=[]; }
+  try{ propPayments = JSON.parse(localStorage.getItem('condo_'+condoId+'_prop'))||[]; }catch(e){ propPayments=[]; }
+  try{ proprietari = JSON.parse(localStorage.getItem('condo_'+condoId+'_proprietari'))||[]; }catch(e){ proprietari=[]; }
 }
 // alias
 function save(){ saveData(); }
@@ -821,6 +1004,8 @@ function navigate(view){
   if(view==='entrate')   renderList('entrate');
   if(view==='uscite')    renderList('uscite');
   if(view==='tutti')     renderList('tutti');
+  if(view==='debiti')    renderDebiti();
+  if(view==='proprietari') renderProprietari();
   if(view==='bilancio')  renderBilancio();
   if(view==='oneri')     renderOneri();
   if(view==='report')    renderReport();
@@ -1214,6 +1399,434 @@ function openDeadlineModal(){ document.getElementById('d-desc').value=''; docume
 function saveDeadline(){ const desc=document.getElementById('d-desc').value.trim(); const date=document.getElementById('d-date').value; if(!desc||!date){showToast('Inserisci descrizione e data');return;} deadlines.push({id:uid(),desc,date,amount:parseFloat(document.getElementById('d-amount').value)||0,notes:document.getElementById('d-notes').value.trim()}); save(); closeModal('modal-deadline'); showToast('Scadenza salvata ✓'); renderScadenze(); }
 function deleteDeadline(id){ deadlines=deadlines.filter(d=>d.id!==id); save(); renderScadenze(); }
 
+
+// ══ MULTI-FILE HANDLING ══
+let selectedFiles = []; // [{data, name, type}]
+
+function onFilesSelect(input){
+  const files = Array.from(input.files).slice(0,5);
+  files.forEach(file=>{
+    if(selectedFiles.length>=5) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      selectedFiles.push({data:e.target.result, name:file.name, type:file.type});
+      renderFilePreviews('file-preview-area', selectedFiles, true);
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function onPropFilesSelect(input){
+  const files = Array.from(input.files).slice(0,5);
+  files.forEach(file=>{
+    if(propSelectedFiles.length>=5) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      propSelectedFiles.push({data:e.target.result, name:file.name, type:file.type});
+      renderFilePreviews('pr-files-preview', propSelectedFiles, true);
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+let propSelectedFiles = [];
+
+function renderFilePreviews(containerId, filesArr, editable){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = filesArr.map((f,i)=>{
+    const isImg = f.type && f.type.startsWith('image/');
+    const thumb = isImg
+      ? `<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}">`
+      : `<div class="file-thumb-pdf" onclick="window.open('${f.data}')" title="${f.name}">📄</div>`;
+    const rmBtn = editable ? `<button class="file-item-remove" onclick="removeFile(${i},'${containerId}')">✕</button>` : '';
+    return `<div class="file-item">${thumb}${rmBtn}</div>`;
+  }).join('');
+}
+
+function removeFile(idx, containerId){
+  if(containerId==='file-preview-area') selectedFiles.splice(idx,1);
+  else propSelectedFiles.splice(idx,1);
+  renderFilePreviews(containerId, containerId==='file-preview-area'?selectedFiles:propSelectedFiles, true);
+}
+
+// Show/hide proprietario field based on category
+document.addEventListener('change', e=>{
+  if(e.target.id==='f-cat'){
+    const pg = document.getElementById('prop-name-group');
+    if(pg) pg.style.display = e.target.value==='prop_payment' ? 'flex' : 'none';
+    if(e.target.value==='prop_payment') populatePropDatalist('f-prop-list');
+  }
+});
+
+function populatePropDatalist(listId){
+  const dl = document.getElementById(listId);
+  if(!dl) return;
+  dl.innerHTML = proprietari.map(p=>`<option value="${p}">`).join('');
+}
+
+// ══ OVERRIDE saveTx to handle multi-files and proprietari ══
+// (monkey-patch: keep extra fields)
+const _origSaveTx = saveTx;
+
+// ══ DEBITI CONDOMINIO ══
+const DEBT_CATS = {
+  riscaldamento:{label:'Riscaldamento',icon:'🔥',color:'var(--blue)'},
+  condominio_ord:{label:'Condominio ordinario',icon:'🏛',color:'var(--text-2)'},
+  lavori_straord:{label:'Lavori straordinari',icon:'🔧',color:'var(--amber)'},
+  bonifica:{label:'Bonifica / Amianto',icon:'⚠',color:'var(--red)'},
+  antincendio:{label:'Antincendio',icon:'🚒',color:'var(--red)'},
+  portone:{label:'Sostituzione portone',icon:'🚪',color:'var(--amber)'},
+  altro:{label:'Altro',icon:'📋',color:'var(--text-3)'},
+};
+
+function openDebtModal(editId){
+  const d = editId ? debiti.find(x=>x.id===editId) : null;
+  document.getElementById('modal-debt-title').textContent = editId ? 'Modifica voce debitoria' : 'Nuova voce debitoria';
+  document.getElementById('db-desc').value = d ? d.desc : '';
+  document.getElementById('db-cat').value = d ? d.cat : 'riscaldamento';
+  document.getElementById('db-total').value = d ? d.total : '';
+  document.getElementById('db-year').value = d ? d.year : currentYear;
+  document.getElementById('db-notes').value = d ? (d.notes||'') : '';
+  document.getElementById('db-id').value = editId||'';
+  document.getElementById('modal-debt').classList.add('open');
+}
+
+function saveDebt(){
+  const desc = document.getElementById('db-desc').value.trim();
+  const total = parseFloat(document.getElementById('db-total').value);
+  if(!desc){ showToast('Inserisci una descrizione'); return; }
+  if(!total||total<=0){ showToast('Inserisci importo totale'); return; }
+  const editId = document.getElementById('db-id').value;
+  const id = editId || uid();
+  const debt = {
+    id, desc, total, 
+    cat: document.getElementById('db-cat').value,
+    year: document.getElementById('db-year').value,
+    notes: document.getElementById('db-notes').value.trim(),
+    payments: editId ? (debiti.find(x=>x.id===editId)?.payments||[]) : [],
+    open: true
+  };
+  if(editId){ const idx=debiti.findIndex(x=>x.id===editId); if(idx!==-1) debiti[idx]=debt; }
+  else debiti.push(debt);
+  save();
+  closeModal('modal-debt');
+  showToast(editId ? 'Aggiornato ✓' : 'Voce creata ✓');
+  renderDebiti();
+}
+
+function deleteDebt(id){
+  if(!confirm('Eliminare questa voce debitoria?\nI pagamenti registrati rimarranno nelle uscite.')) return;
+  debiti = debiti.filter(x=>x.id!==id);
+  save(); renderDebiti();
+}
+
+function openDebtPayModal(debtId){
+  const d = debiti.find(x=>x.id===debtId);
+  if(!d) return;
+  const paid = d.payments.reduce((s,p)=>s+(+p.amount),0);
+  const residuo = d.total - paid;
+  document.getElementById('dp-debt-name').textContent = d.desc + ' — residuo: ' + fmt(residuo);
+  document.getElementById('dp-amount').value = '';
+  document.getElementById('dp-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('dp-method').value = 'bonifico';
+  document.getElementById('dp-notes').value = '';
+  document.getElementById('dp-debt-id').value = debtId;
+  document.getElementById('modal-debt-pay').classList.add('open');
+}
+
+function saveDebtPayment(){
+  const debtId = document.getElementById('dp-debt-id').value;
+  const amount = parseFloat(document.getElementById('dp-amount').value);
+  const date = document.getElementById('dp-date').value;
+  if(!amount||amount<=0){ showToast('Inserisci importo'); return; }
+  if(!date){ showToast('Inserisci data'); return; }
+  const d = debiti.find(x=>x.id===debtId);
+  if(!d) return;
+  const payment = {id:uid(), amount, date, method:document.getElementById('dp-method').value, notes:document.getElementById('dp-notes').value.trim()};
+  d.payments.push(payment);
+  // Check if fully paid
+  const totalPaid = d.payments.reduce((s,p)=>s+(+p.amount),0);
+  if(totalPaid >= d.total) d.open = false;
+  // Auto-create uscita in bilancio
+  const tx = {
+    id: uid(), type:'uscita',
+    desc: 'Pagamento: ' + d.desc,
+    amount, date,
+    cat: d.cat==='riscaldamento'?'riscaldamento_cond': d.cat==='condominio_ord'?'condominio': 'manutenzione',
+    method: payment.method,
+    party: 'Condominio ' + (currentCondo()?.name||''),
+    notes: 'Rata debito: ' + d.desc + (payment.notes?' — '+payment.notes:''),
+    files: [], fileData: null
+  };
+  txs.push(tx);
+  save();
+  closeModal('modal-debt-pay');
+  showToast('Pagamento registrato ✓ — uscita creata');
+  renderDebiti();
+}
+
+function renderDebiti(){
+  // Stats
+  const totalDovuto = debiti.reduce((s,d)=>s+(+d.total),0);
+  const totalPagato = debiti.reduce((s,d)=>s+d.payments.reduce((sp,p)=>sp+(+p.amount),0),0);
+  const totalResiduo = totalDovuto - totalPagato;
+  const open = debiti.filter(d=>d.open!==false||d.payments.reduce((s,p)=>s+(+p.amount),0)<d.total).length;
+  document.getElementById('debt-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Totale dovuto</div><div class="stat-value blue">${fmt(totalDovuto)}</div><div class="stat-delta">${debiti.length} voci</div></div>
+    <div class="stat-card"><div class="stat-label">Totale versato</div><div class="stat-value green">${fmt(totalPagato)}</div></div>
+    <div class="stat-card"><div class="stat-label">Residuo da versare</div><div class="stat-value red">${fmt(totalResiduo)}</div><div class="stat-delta">${open} voci aperte</div></div>`;
+
+  const el = document.getElementById('debiti-list');
+  if(!debiti.length){
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><h3>Nessun debito registrato</h3><p>Aggiungi le voci dall\'estratto conto del condominio</p></div>';
+    return;
+  }
+  el.innerHTML = debiti.map(d=>{
+    const paid = d.payments.reduce((s,p)=>s+(+p.amount),0);
+    const residuo = Math.max(0, d.total - paid);
+    const pct = Math.min(100, (paid/d.total*100));
+    const isSald = residuo===0;
+    const dc = DEBT_CATS[d.cat]||DEBT_CATS.altro;
+    const fillCls = pct>=100?'':pct>50?'warning':'danger';
+    return `
+    <div class="debt-card">
+      <div class="debt-card-header" onclick="toggleDebtBody('${d.id}')">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px">${dc.icon}</span>
+            <div>
+              <div class="debt-card-title">${d.desc}</div>
+              <div class="debt-card-subtitle">${dc.label} · ${d.year}${d.notes?' · '+d.notes:''}</div>
+            </div>
+            ${isSald?'<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--green-bg);color:var(--green);font-weight:600;">✓ Saldato</span>':''}
+          </div>
+          <div class="debt-progress-bar"><div class="debt-progress-fill ${fillCls}" style="width:${pct.toFixed(1)}%"></div></div>
+          <div class="debt-amounts">
+            <div class="debt-amt"><strong class="blue">${fmt(d.total)}</strong>Dovuto</div>
+            <div class="debt-amt"><strong class="green">${fmt(paid)}</strong>Versato</div>
+            <div class="debt-amt"><strong class="${residuo>0?'red':'green'}">${fmt(residuo)}</strong>Residuo</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-left:12px;">
+          ${!isSald?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDebtPayModal('${d.id}')">+ Paga</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDebtModal('${d.id}')">✎</button>
+          <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="event.stopPropagation();deleteDebt('${d.id}')">✕</button>
+        </div>
+      </div>
+      <div class="debt-body" id="debt-body-${d.id}" style="display:${d.payments.length?'block':'none'}">
+        ${d.payments.length ? d.payments.map(p=>`
+          <div class="debt-payment-row">
+            <span style="color:var(--text-3);width:90px;flex-shrink:0">${fmtDate(p.date)}</span>
+            <span style="flex:1">${p.notes||'Pagamento'}</span>
+            <span style="color:var(--text-3);font-size:12px">${p.method||''}</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:8px">${fmt(p.amount)}</span>
+            <button class="tx-btn del" onclick="deleteDebtPayment('${d.id}','${p.id}')">✕</button>
+          </div>`).join('') : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDebtBody(id){
+  const el = document.getElementById('debt-body-'+id);
+  if(el) el.style.display = el.style.display==='none'?'block':'none';
+}
+
+function deleteDebtPayment(debtId, payId){
+  const d = debiti.find(x=>x.id===debtId); if(!d) return;
+  d.payments = d.payments.filter(p=>p.id!==payId);
+  d.open = true;
+  save(); renderDebiti();
+}
+
+// ══ PROPRIETARI ══
+function openPropModal(editId){
+  propSelectedFiles = [];
+  const p = editId ? propPayments.find(x=>x.id===editId) : null;
+  document.getElementById('modal-prop-title').textContent = editId ? 'Modifica versamento' : 'Nuovo versamento proprietario';
+  document.getElementById('pr-name').value = p ? p.name : '';
+  document.getElementById('pr-amount').value = p ? p.amount : '';
+  document.getElementById('pr-date').value = p ? p.date : new Date().toISOString().split('T')[0];
+  document.getElementById('pr-method').value = p ? (p.method||'bonifico') : 'bonifico';
+  document.getElementById('pr-notes').value = p ? (p.notes||'') : '';
+  document.getElementById('pr-id').value = editId||'';
+  if(p && p.files) { propSelectedFiles=[...p.files]; renderFilePreviews('pr-files-preview', propSelectedFiles, true); }
+  else document.getElementById('pr-files-preview').innerHTML='';
+  populatePropDatalist('prop-list');
+  document.getElementById('modal-prop').classList.add('open');
+}
+
+function savePropPayment(){
+  const name = document.getElementById('pr-name').value.trim();
+  const amount = parseFloat(document.getElementById('pr-amount').value);
+  const date = document.getElementById('pr-date').value;
+  if(!name){ showToast('Inserisci nome proprietario'); return; }
+  if(!amount||amount<=0){ showToast('Inserisci importo'); return; }
+  if(!date){ showToast('Inserisci data'); return; }
+  const editId = document.getElementById('pr-id').value;
+  const id = editId || uid();
+  // Auto-add to proprietari list
+  if(!proprietari.includes(name)) proprietari.push(name);
+  const pp = {id, name, amount, date, method:document.getElementById('pr-method').value, notes:document.getElementById('pr-notes').value.trim(), files:[...propSelectedFiles]};
+  if(editId){ const idx=propPayments.findIndex(x=>x.id===editId); if(idx!==-1) propPayments[idx]=pp; }
+  else propPayments.push(pp);
+  // Auto-create uscita nel bilancio
+  if(!editId){
+    const tx = {id:uid(), type:'uscita', desc:'Versamento a '+name, amount, date, cat:'prop_payment', method:pp.method, party:name, notes:pp.notes, files:propSelectedFiles.map(f=>({data:f.data,name:f.name,type:f.type}))};
+    txs.push(tx);
+  }
+  save();
+  closeModal('modal-prop');
+  showToast('Versamento salvato ✓');
+  renderProprietari();
+}
+
+function deletePropPayment(id){
+  if(!confirm('Eliminare questo versamento?')) return;
+  propPayments = propPayments.filter(x=>x.id!==id);
+  save(); renderProprietari();
+}
+
+function renderProprietari(){
+  const el = document.getElementById('proprietari-content');
+  if(!propPayments.length){
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><h3>Nessun versamento registrato</h3><p>Aggiungi i versamenti ai proprietari dell\'appartamento</p></div>';
+    return;
+  }
+  // Group by proprietario
+  const byProp = {};
+  propPayments.forEach(p=>{ byProp[p.name]=(byProp[p.name]||[]); byProp[p.name].push(p); });
+  const totalVersato = propPayments.reduce((s,p)=>s+(+p.amount),0);
+  // Colors for avatars
+  const avatarColors = ['#2d6a4f','#1a4a8a','#b35c00','#6b3fa0','#c0392b','#1a7a7a'];
+  let html = `<div class="card" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE VERSATO AI PROPRIETARI</div><div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:var(--red);">${fmt(totalVersato)}</div></div><button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button></div>`;
+  Object.entries(byProp).forEach(([nome, payments], gi)=>{
+    const tot = payments.reduce((s,p)=>s+(+p.amount),0);
+    const color = avatarColors[gi%avatarColors.length];
+    const initials = nome.split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+    html += `<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+        <div class="prop-avatar" style="background:${color}">${initials}</div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:500">${nome}</div><div style="font-size:12px;color:var(--text-3)">${payments.length} versamenti · ${fmt(tot)} totale</div></div>
+      </div>
+      ${payments.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`
+        <div class="proprietari-row">
+          <div style="flex:1">
+            <div style="font-weight:500;font-size:13px">${p.notes||'Versamento'}</div>
+            <div style="font-size:11px;color:var(--text-3)">${fmtDate(p.date)} · ${p.method||''}</div>
+            ${p.files&&p.files.length?`<div class="files-grid" style="margin-top:6px">${p.files.map(f=>f.type&&f.type.startsWith('image/')?`<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}" style="width:40px;height:40px;">`:`<div class="file-thumb-pdf" onclick="window.open('${f.data}')" style="width:40px;height:40px;font-size:16px;">📄</div>`).join('')}</div>`:''}
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--red);margin-right:8px;">${fmt(p.amount)}</div>
+          <div style="display:flex;gap:4px;">
+            <button class="tx-btn" onclick="openPropModal('${p.id}')">✎</button>
+            <button class="tx-btn del" onclick="deletePropPayment('${p.id}')">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ══ UPDATE saveTx for multi-files + proprietari ══
+function saveTx(){
+  const desc=document.getElementById('f-desc').value.trim();
+  const amount=parseFloat(document.getElementById('f-amount').value);
+  const date=document.getElementById('f-date').value;
+  if(!desc){ showToast('Inserisci una descrizione'); return; }
+  if(!amount||amount<=0){ showToast('Inserisci un importo valido'); return; }
+  if(!date){ showToast('Inserisci la data'); return; }
+  const cat = document.getElementById('f-cat').value;
+  // Handle proprietario
+  if(cat==='prop_payment'){
+    const propName = document.getElementById('f-prop-name').value.trim();
+    if(!propName){ showToast('Inserisci il nome del proprietario'); return; }
+    if(!proprietari.includes(propName)) proprietari.push(propName);
+  }
+  const id=editingId||uid();
+  const existing=editingId?txs.find(t=>t.id===editingId):null;
+  const tx={
+    id, type:currentType, desc, amount, date, cat,
+    method:document.getElementById('f-method').value,
+    party: cat==='prop_payment' ? document.getElementById('f-prop-name').value.trim() : document.getElementById('f-party').value.trim(),
+    notes:document.getElementById('f-notes').value.trim(),
+    files: selectedFiles.length ? [...selectedFiles] : (existing?.files||[]),
+    // keep backward compat
+    fileData: selectedFiles.length ? selectedFiles[0].data : (existing?.fileData||null),
+    fileName: selectedFiles.length ? selectedFiles[0].name : (existing?.fileName||null),
+  };
+  if(editingId){ const idx=txs.findIndex(t=>t.id===editingId); if(idx!==-1) txs[idx]=tx; }
+  else txs.push(tx);
+  save();
+  closeModal('modal-tx');
+  showToast(editingId?'Movimento aggiornato ✓':'Movimento salvato ✓');
+  const av=document.querySelector('.view.active');
+  if(av) navigate(av.id.replace('view-',''));
+}
+
+// ══ UPDATE openModal to reset multi-files and show/hide prop field ══
+const _origOpenModal = openModal;
+function openModal(type){
+  editingId=null; currentType=type; selectedFiles=[];
+  document.getElementById('modal-tx-title').textContent=type==='entrata'?'Nuova entrata':'Nuova uscita';
+  document.getElementById('f-desc').value=''; document.getElementById('f-amount').value='';
+  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-cat').value=type==='entrata'?'affitti':'manutenzione';
+  document.getElementById('f-method').value='bonifico';
+  document.getElementById('f-party').value=''; document.getElementById('f-notes').value='';
+  document.getElementById('f-id').value='';
+  document.getElementById('file-preview-area').innerHTML='';
+  const pg = document.getElementById('prop-name-group');
+  if(pg) pg.style.display='none';
+  updateTypeToggle(type);
+  document.getElementById('modal-tx').classList.add('open');
+}
+
+// ══ UPDATE editTx for multi-files ══
+function editTx(id){
+  const t=txs.find(x=>x.id===id); if(!t) return;
+  editingId=id; currentType=t.type; selectedFiles=t.files?[...t.files]:[];
+  document.getElementById('modal-tx-title').textContent='Modifica movimento';
+  document.getElementById('f-desc').value=t.desc; document.getElementById('f-amount').value=t.amount;
+  document.getElementById('f-date').value=t.date; document.getElementById('f-cat').value=t.cat;
+  document.getElementById('f-method').value=t.method; 
+  document.getElementById('f-party').value=t.type!=='prop_payment'?(t.party||''):'';
+  document.getElementById('f-notes').value=t.notes||''; document.getElementById('f-id').value=id;
+  // prop name field
+  const pg = document.getElementById('prop-name-group');
+  if(pg){ pg.style.display=t.cat==='prop_payment'?'flex':'none'; }
+  if(t.cat==='prop_payment'){ document.getElementById('f-prop-name').value=t.party||''; populatePropDatalist('f-prop-list'); }
+  updateTypeToggle(t.type);
+  renderFilePreviews('file-preview-area', selectedFiles, true);
+  document.getElementById('modal-tx').classList.add('open');
+}
+
+// ══ UPDATE showDetail for multi-files ══
+function showDetail(id){
+  const t=txs.find(x=>x.id===id); if(!t) return;
+  const cat=CATEGORIES[t.cat]||CATEGORIES.altro;
+  const sign=t.type==='entrata'?'+':'-';
+  const filesHtml = (t.files&&t.files.length) ? `<div style="margin-top:12px;"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px;">ALLEGATI</div><div class="files-grid">${t.files.map(f=>f.type&&f.type.startsWith('image/')?`<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')">`:`<div class="file-thumb-pdf" onclick="window.open('${f.data}')">📄</div>`).join('')}</div></div>` : (t.fileData?`<img class="detail-img" src="${t.fileData}" onclick="window.open('${t.fileData}')">` :'');
+  document.getElementById('dp-title').textContent=t.desc;
+  document.getElementById('dp-body').innerHTML=`
+    <div class="detail-row"><span class="detail-key">Tipo</span><span class="detail-val"><span class="cat-badge ${t.type==='entrata'?'cat-affitti':'cat-manutenzione'}">${t.type==='entrata'?'↑ Entrata':'↓ Uscita'}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Importo</span><span class="detail-val" style="color:${t.type==='entrata'?'var(--green)':'var(--red)'};font-family:'DM Mono',monospace;">${sign}${fmt(Math.abs(t.amount))}</span></div>
+    <div class="detail-row"><span class="detail-key">Data</span><span class="detail-val">${fmtDate(t.date)}</span></div>
+    <div class="detail-row"><span class="detail-key">Categoria</span><span class="detail-val"><span class="cat-badge ${cat.cls}">${cat.label}</span></span></div>
+    <div class="detail-row"><span class="detail-key">Metodo</span><span class="detail-val">${t.method||'—'}</span></div>
+    <div class="detail-row"><span class="detail-key">Controparte</span><span class="detail-val">${t.party||'—'}</span></div>
+    ${t.notes?`<div class="detail-row"><span class="detail-key">Note</span><span class="detail-val" style="max-width:200px;word-break:break-word;">${t.notes}</span></div>`:''}
+    ${filesHtml}
+    <div style="display:flex;gap:8px;margin-top:20px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="editTx('${id}');closeDetail()">✎ Modifica</button>
+      <button class="btn btn-sm" style="flex:1;background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="deleteTx('${id}')">✕ Elimina</button>
+    </div>`;
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+
 // ══ EXPORT EXCEL ══
 function exportXLSX(){
   if(!window.XLSX){ showToast('Libreria Excel non ancora caricata, riprova'); return; }
@@ -1414,7 +2027,7 @@ async function driveSaveCondos(){
 async function driveSaveData(manual=false){
   if(!driveAccessToken||!currentCondoId) return;
   const c=currentCondo();
-  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,condoName:c?.name,savedAt:new Date().toISOString()}));
+  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,condoName:c?.name,savedAt:new Date().toISOString()}));
   const t=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   if(ok){ setDriveStatus('connected',`Salvato ${t}`); if(manual) showToast('✓ Salvato su Drive'); }
   else { setDriveStatus('error','Errore salvataggio'); if(manual) showToast('Errore salvataggio Drive'); }
@@ -1446,8 +2059,12 @@ async function driveLoadData(condoId,silent=false){
     const data=await driveFetchFile(`condo_${condoId}.json`);
     if(data&&data.txs){
       txs=data.txs; deadlines=data.deadlines||[];
+      debiti=data.debiti||[]; propPayments=data.propPayments||[]; proprietari=data.proprietari||[];
       localStorage.setItem('condo_'+condoId+'_txs',JSON.stringify(txs));
       localStorage.setItem('condo_'+condoId+'_deadlines',JSON.stringify(deadlines));
+      localStorage.setItem('condo_'+condoId+'_debiti',JSON.stringify(debiti));
+      localStorage.setItem('condo_'+condoId+'_prop',JSON.stringify(propPayments));
+      localStorage.setItem('condo_'+condoId+'_proprietari',JSON.stringify(proprietari));
       if(currentCondoId===condoId){ const av=document.querySelector('.view.active'); if(av) navigate(av.id.replace('view-','')); }
       renderCondoGrid();
     }
