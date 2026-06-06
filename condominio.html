@@ -1487,18 +1487,10 @@ function renderBilancio(){
       return `<tr><td style="font-weight:500">${mn}</td><td class="mono" style="color:var(--green)">${fmt(monthly[m].in)}</td><td class="mono" style="color:var(--red)">${fmt(monthly[m].out)}</td><td class="mono" style="color:${s>=0?'var(--green)':'var(--red)'};font-weight:500">${s>=0?'+':''}${fmt(s)}</td></tr>`;
     }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:20px">Nessun dato</td></tr>'}
       </tbody></table></div></div>
-    <div class="card report-section"><div class="report-section"><h3>Quadro riepilogativo 730</h3>
-      <table class="summary-table"><thead><tr><th>Voce</th><th>Importo</th></tr></thead><tbody>
-        <tr><td>Canoni di locazione percepiti (Quadro B)</td><td class="mono">${fmt(canoni)}</td></tr>
-        <tr><td>IMU / Tasse acconto versate</td><td class="mono">${fmt(tasse)}</td></tr>
-        <tr><td>Tasse fine anno versate (saldo IMU, F24)</td><td class="mono">${fmt(tasseFine)}</td></tr>
-        <tr><td>Regime applicato</td><td class="mono">${taxLabel}</td></tr>
-        <tr class="total-row"><td>Imposta stimata</td><td class="mono" style="color:var(--amber)">${fmt(impostaStimata)}</td></tr>
-        <tr><td style="color:var(--text-3);font-size:12px">Già versato (acconto + saldo)</td><td class="mono" style="color:var(--text-3);font-size:12px">− ${fmt(tasse+tasseFine)}</td></tr>
-        <tr class="total-row"><td>Residuo stimato</td><td class="mono" style="color:${impostaStimata-(tasse+tasseFine)>0?'var(--red)':'var(--green)'};">${fmt(Math.max(0,impostaStimata-(tasse+tasseFine)))}</td></tr>
-      </tbody></table>
-      <p style="font-size:11px;color:var(--text-3);margin-top:10px;">⚠ Stime indicative.</p>
-    </div></div>`;
+    <div class="card" style="margin-top:4px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;color:var(--text-2);">Per il dettaglio fiscale (730, cedolare, IRPEF)</span>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('report')">Vai al Report / 730 →</button>
+    </div>`;
 }
 
 // ══ ONERI CONDOMINI ══
