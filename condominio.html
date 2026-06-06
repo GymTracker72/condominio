@@ -947,6 +947,17 @@ textarea{resize:vertical;min-height:70px;}
 
 <script>
 // ══ CONSTANTS ══
+// Global file viewer cache - avoids base64 in HTML attributes
+const _fileCache = {};
+function viewFile(key){
+  const data = _fileCache[key];
+  if(data) window.open(data);
+}
+function cacheAndView(data){
+  const key = 'f_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  _fileCache[key] = data;
+  return key;
+}
 const CLIENT_ID = '765529798488-9d17bd1u9mqi1iico8fickia8ochfbrf.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const CONDO_COLORS = ['#2d6a4f','#1a4a8a','#c0392b','#b35c00','#6b3fa0','#1a7a7a','#8a4a1a','#555'];
@@ -1407,7 +1418,7 @@ function showDetail(id){
     <div class="detail-row"><span class="detail-key">Metodo</span><span class="detail-val">${t.method||'—'}</span></div>
     <div class="detail-row"><span class="detail-key">Controparte</span><span class="detail-val">${t.party||'—'}</span></div>
     ${t.notes?`<div class="detail-row"><span class="detail-key">Note</span><span class="detail-val" style="max-width:200px;word-break:break-word;">${t.notes}</span></div>`:''}
-    ${t.fileData?`<img class="detail-img" src="${t.fileData}" alt="Allegato" onclick="window.open('${t.fileData}')">` :''}
+    ${t.fileData?(()=>{const k=cacheAndView(t.fileData);return `<img class="detail-img" src="${t.fileData}" alt="Allegato" onclick="viewFile('${k}')">`;})():''}
     <div style="display:flex;gap:8px;margin-top:20px;">
       <button class="btn btn-ghost btn-sm" style="flex:1" onclick="editTx('${id}');closeDetail()">✎ Modifica</button>
       <button class="btn btn-sm" style="flex:1;background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="deleteTx('${id}')">✕ Elimina</button>
@@ -1622,7 +1633,7 @@ function renderOneri(){
               ${item.inquilino?'· '+item.inquilino:''} 
               ${item.notes?'· '+item.notes:''}
             </div>
-            ${item.files&&item.files.length?`<div style="display:flex;gap:3px;margin-top:4px;">${item.files.map(f=>f.type&&f.type.startsWith('image/')?`<img style="width:28px;height:28px;border-radius:3px;object-fit:cover;cursor:pointer;" src="${f.data}" onclick="window.open('${f.data}')">`:`<div style="width:28px;height:28px;border-radius:3px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;" onclick="window.open('${f.data}')">📄</div>`).join('')}</div>`:''}
+            ${item.files&&item.files.length?`<div style="display:flex;gap:3px;margin-top:4px;">${item.files.map(f=>{const k=cacheAndView(f.data);return f.type&&f.type.startsWith('image/')?`<img style="width:28px;height:28px;border-radius:3px;object-fit:cover;cursor:pointer;" src="${f.data}" onclick="viewFile('${k}')">`:`<div style="width:28px;height:28px;border-radius:3px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;" onclick="viewFile('${k}')">📄</div>`;}).join('')}</div>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;">${fmt(item.amount)}</span>
@@ -1880,14 +1891,19 @@ function onPropFilesSelect(input){
 
 let propSelectedFiles = [];
 
-function renderFilePreviews(containerId, filesArr, editable){
+function renderFilePreviews(containerId, filesArr, editable, arrName){
+  if(arrName === 'debtPayFiles' || arrName === 'epFiles'){
+    renderDebtFilePreviews(containerId, filesArr);
+    return;
+  }
   const el = document.getElementById(containerId);
   if(!el) return;
   el.innerHTML = filesArr.map((f,i)=>{
     const isImg = f.type && f.type.startsWith('image/');
+    const key = cacheAndView(f.data);
     const thumb = isImg
-      ? `<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}">`
-      : `<div class="file-thumb-pdf" onclick="window.open('${f.data}')" title="${f.name}">📄</div>`;
+      ? `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}">`
+      : `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name}">📄</div>`;
     const rmBtn = editable ? `<button class="file-item-remove" onclick="removeFile(${i},'${containerId}')">✕</button>` : '';
     return `<div class="file-item">${thumb}${rmBtn}</div>`;
   }).join('');
@@ -1964,9 +1980,10 @@ function renderDebtFilePreviews(containerId, filesArr){
   el.innerHTML = filesArr.map((f,i)=>{
     const isImg = f.type && f.type.startsWith('image/');
     const arrName = containerId === 'dp-files-preview' ? 'debtPayFiles' : 'epFiles';
+    const key = cacheAndView(f.data);
     return `<div class="file-item">
-      ${isImg ? `<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}">` 
-               : `<div class="file-thumb-pdf" onclick="window.open('${f.data}')" title="${f.name}">📄</div>`}
+      ${isImg ? `<img class="file-thumb" src="${f.data}" onclick="viewFile('${key}')" title="${f.name}">` 
+               : `<div class="file-thumb-pdf" onclick="viewFile('${key}')" title="${f.name}">📄</div>`}
       <button class="file-item-remove" onclick="removeDebtFile(${i},'${arrName}')">✕</button>
     </div>`;
   }).join('');
@@ -2163,7 +2180,7 @@ function renderDebiti(){
           <span style="color:var(--text-3);font-size:11px">${p.method||''}</span>
           ${p.commission>0?`<span style="font-size:11px;color:var(--amber)">+comm.${fmt(p.commission)}</span>`:''}
           <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);margin-left:4px">${fmt(p.amount)}</span>
-          ${p.files&&p.files.length?`<div style="display:flex;gap:3px;align-items:center;">${p.files.map(f=>f.type&&f.type.startsWith('image/')?`<img style="width:24px;height:24px;border-radius:3px;object-fit:cover;cursor:pointer;border:1px solid var(--border)" src="${f.data}" onclick="event.stopPropagation();window.open('${f.data}')" title="${f.name}">` :`<div style="width:24px;height:24px;border-radius:3px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;" onclick="event.stopPropagation();window.open('${f.data}')" title="${f.name}">📄</div>`).join('')}</div>`:''}
+          ${p.files&&p.files.length?`<div style="display:flex;gap:3px;align-items:center;">${p.files.map(f=>{const k=cacheAndView(f.data);return f.type&&f.type.startsWith('image/')?`<img style="width:24px;height:24px;border-radius:3px;object-fit:cover;cursor:pointer;border:1px solid var(--border)" src="${f.data}" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">` :`<div style="width:24px;height:24px;border-radius:3px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;" onclick="event.stopPropagation();viewFile('${k}')" title="${f.name}">📄</div>`;}).join('')}</div>`:''}
           <button class="tx-btn" onclick="event.stopPropagation();editPaymentPagante('${d.id}','${p.id}')" title="Modifica pagante / allegati">👤</button>
           <button class="tx-btn del" onclick="event.stopPropagation();deleteDebtPayment('${d.id}','${p.id}')">✕</button>
         </div>`).join('');
@@ -2452,7 +2469,7 @@ function showDetail(id){
   const t=txs.find(x=>x.id===id); if(!t) return;
   const cat=CATEGORIES[t.cat]||CATEGORIES.altro;
   const sign=t.type==='entrata'?'+':'-';
-  const filesHtml = (t.files&&t.files.length) ? `<div style="margin-top:12px;"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px;">ALLEGATI</div><div class="files-grid">${t.files.map(f=>f.type&&f.type.startsWith('image/')?`<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')">`:`<div class="file-thumb-pdf" onclick="window.open('${f.data}')">📄</div>`).join('')}</div></div>` : (t.fileData?`<img class="detail-img" src="${t.fileData}" onclick="window.open('${t.fileData}')">` :'');
+  const filesHtml = (t.files&&t.files.length) ? `<div style="margin-top:12px;"><div style="font-size:12px;color:var(--text-3);margin-bottom:6px;">ALLEGATI</div><div class="files-grid">${t.files.map(f=>{const k=cacheAndView(f.data);return f.type&&f.type.startsWith('image/')?`<img class="file-thumb" src="${f.data}" onclick="viewFile('${k}')">`:`<div class="file-thumb-pdf" onclick="viewFile('${k}')">📄</div>`;}).join('')}</div></div>` : (t.fileData?(()=>{const k=cacheAndView(t.fileData);return `<img class="detail-img" src="${t.fileData}" onclick="viewFile('${k}')">`;})():'');
   document.getElementById('dp-title').textContent=t.desc;
   document.getElementById('dp-body').innerHTML=`
     <div class="detail-row"><span class="detail-key">Tipo</span><span class="detail-val"><span class="cat-badge ${t.type==='entrata'?'cat-affitti':'cat-manutenzione'}">${t.type==='entrata'?'↑ Entrata':'↓ Uscita'}</span></span></div>
