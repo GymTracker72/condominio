@@ -3435,26 +3435,82 @@ async function driveLoadAll(silent=false){
     if(!silent) showToast('✓ Caricato da Drive');
   }catch(e){ setDriveStatus('error','Errore rete'); }
 }
-async function driveLoadData(condoId,silent=false){
+async function driveLoadData(condoId, silent=false){
   if(!driveAccessToken) return;
   try{
-    const data=await driveFetchFile(`condo_${condoId}.json`);
-    if(data&&data.txs){
-      txs=data.txs; deadlines=data.deadlines||[];
-      debiti=data.debiti||[]; propPayments=data.propPayments||[]; proprietari=data.proprietari||[];
-      oneriManual=data.oneriManual||[]; oneriOverrides=data.oneriOverrides||{}; anagrafica=data.anagrafica||[];
-      localStorage.setItem('condo_'+condoId+'_txs',JSON.stringify(txs));
-      localStorage.setItem('condo_'+condoId+'_deadlines',JSON.stringify(deadlines));
-      localStorage.setItem('condo_'+condoId+'_debiti',JSON.stringify(debiti));
-      localStorage.setItem('condo_'+condoId+'_prop',JSON.stringify(propPayments));
-      localStorage.setItem('condo_'+condoId+'_proprietari',JSON.stringify(proprietari));
-      localStorage.setItem('condo_'+condoId+'_anagrafica',JSON.stringify(anagrafica));
-      localStorage.setItem('condo_'+condoId+'_oneri_manual',JSON.stringify(oneriManual));
-      localStorage.setItem('condo_'+condoId+'_oneri_overrides',JSON.stringify(oneriOverrides));
-      if(currentCondoId===condoId){ const av=document.querySelector('.view.active'); if(av) navigate(av.id.replace('view-','')); }
-      renderCondoGrid();
+    const data = await driveFetchFile(`condo_${condoId}.json`);
+    if(!data || !data.txs) return;
+
+    // ── MERGE LOGIC ──
+    // Load current local data for this condo
+    let localTxs=[], localDebiti=[], localProp=[], localDeadlines=[], localAnag=[], localOneri=[], localOverrides={};
+    try{ localTxs=JSON.parse(localStorage.getItem('condo_'+condoId+'_txs'))||[]; }catch(e){}
+    try{ localDebiti=JSON.parse(localStorage.getItem('condo_'+condoId+'_debiti'))||[]; }catch(e){}
+    try{ localProp=JSON.parse(localStorage.getItem('condo_'+condoId+'_prop'))||[]; }catch(e){}
+    try{ localDeadlines=JSON.parse(localStorage.getItem('condo_'+condoId+'_deadlines'))||[]; }catch(e){}
+    try{ localAnag=JSON.parse(localStorage.getItem('condo_'+condoId+'_anagrafica'))||[]; }catch(e){}
+    try{ localOneri=JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_manual'))||[]; }catch(e){}
+    try{ localOverrides=JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_overrides'))||{}; }catch(e){}
+
+    // Merge arrays by ID: local items not in Drive take priority (they are newer)
+    function mergeById(driveArr, localArr){
+      const merged = [...(driveArr||[])];
+      (localArr||[]).forEach(localItem=>{
+        if(!merged.find(d=>d.id===localItem.id)) merged.push(localItem);
+      });
+      return merged;
     }
-  }catch(e){}
+
+    // Merge debiti payments (nested)
+    function mergeDebiti(driveDebiti, localDebiti){
+      const merged = mergeById(driveDebiti, localDebiti);
+      merged.forEach(d=>{
+        const localD = localDebiti.find(x=>x.id===d.id);
+        if(localD && localD.payments){
+          d.payments = mergeById(d.payments||[], localD.payments);
+        }
+      });
+      return merged;
+    }
+
+    // Merge overrides (object)
+    function mergeOverrides(driveObj, localObj){
+      return {...(driveObj||{}), ...(localObj||{})};
+    }
+
+    txs          = mergeById(data.txs, localTxs);
+    deadlines    = mergeById(data.deadlines||[], localDeadlines);
+    debiti       = mergeDebiti(data.debiti||[], localDebiti);
+    propPayments = mergeById(data.propPayments||[], localProp);
+    proprietari  = [...new Set([...(data.proprietari||[]), ...(proprietari||[])])];
+    oneriManual  = mergeById(data.oneriManual||[], localOneri);
+    oneriOverrides = mergeOverrides(data.oneriOverrides||{}, localOverrides);
+    anagrafica   = mergeById(data.anagrafica||[], localAnag);
+
+    // Persist merged data to localStorage
+    localStorage.setItem('condo_'+condoId+'_txs',           JSON.stringify(txs));
+    localStorage.setItem('condo_'+condoId+'_deadlines',      JSON.stringify(deadlines));
+    localStorage.setItem('condo_'+condoId+'_debiti',         JSON.stringify(debiti));
+    localStorage.setItem('condo_'+condoId+'_prop',           JSON.stringify(propPayments));
+    localStorage.setItem('condo_'+condoId+'_proprietari',    JSON.stringify(proprietari));
+    localStorage.setItem('condo_'+condoId+'_anagrafica',     JSON.stringify(anagrafica));
+    localStorage.setItem('condo_'+condoId+'_oneri_manual',   JSON.stringify(oneriManual));
+    localStorage.setItem('condo_'+condoId+'_oneri_overrides',JSON.stringify(oneriOverrides));
+
+    // Save merged data back to Drive so it's in sync
+    await driveUpsertFile(`condo_${condoId}.json`, JSON.stringify({
+      txs, deadlines, debiti, propPayments, proprietari,
+      oneriManual, oneriOverrides, anagrafica,
+      condoName: condos.find(c=>c.id===condoId)?.name,
+      savedAt: new Date().toISOString()
+    }));
+
+    if(currentCondoId===condoId){
+      const av=document.querySelector('.view.active');
+      if(av) navigate(av.id.replace('view-',''));
+    }
+    renderCondoGrid();
+  }catch(e){ console.error('driveLoadData error', e); }
 }
 async function driveUpsertFile(fileName,payload){
   const fileId=driveFileIds[fileName];
