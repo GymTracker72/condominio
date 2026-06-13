@@ -3712,6 +3712,12 @@ function repairOwnerTxCategories(){
     save();
     showToast('✓ Corrette '+fixed+' categorie uscite proprietario');
     console.log('repairOwnerTxCategories: fixed', fixed, 'txs');
+    // Re-render current view if needed
+    const av = document.querySelector('.view.active');
+    if(av){
+      const view = av.id.replace('view-','');
+      if(['proprietari','dashboard','uscite','bilancio'].includes(view)) navigate(view);
+    }
   }
   return fixed;
 }
