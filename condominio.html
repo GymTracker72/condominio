@@ -2233,6 +2233,7 @@ function saveDebtPayment(){
     id: uid(), type:'uscita',
     desc: 'Pagamento: ' + d.desc,
     amount, date, cat: txCat, method,
+    pagante: pagante,
     party: 'Condominio ' + (currentCondo()?.name||''),
     notes: (pagante?pagante+' — ':'') + d.desc + (notes?' — '+notes:''),
     files: [], fileData: null
@@ -2534,9 +2535,9 @@ function renderProprietari(){
   const txOwnerUscite = txs.filter(t=>{
     if(t.type!=='uscita') return false;
     if(!ownerCats.includes(t.cat)) return false;
-    // Check if pagante (from notes or party) is a proprietario
-    const pagante = extractPagante(t.notes) || t.pagante;
-    return pagante && isProprietario(pagante);
+    // Check t.pagante first, then extract from notes
+    const pag = t.pagante || extractPagante(t.notes);
+    return pag && isProprietario(pag);
   });
 
   // Merge: propPayments + txOwnerUscite (avoid duplicates)
@@ -2550,7 +2551,7 @@ function renderProprietari(){
       cat: p.cat||'manutenzione', source:'prop'
     })),
     ...txOwnerUscite.filter(t=>!propPayIds.has(t.id)).map(t=>{
-      const pagante = extractPagante(t.notes) || t.pagante || t.party || '—';
+      const pagante = t.pagante || extractPagante(t.notes) || '—';
       return {
         id: t.id, date: t.date, amount: +t.amount,
         nome: pagante,
@@ -3695,14 +3696,21 @@ function repairOwnerTxCategories(){
         if(!t.pagante) t.pagante = pagante;
         fixed++;
       }
-      // Also fix 'manutenzione' txs that have owner in notes but missing pagante field
-      if(t.cat==='manutenzione' && !t.pagante && t.notes){
-        const parts = (t.notes||'').split(' — ');
-        for(const part of parts){
-          if(isProprietario(part.trim())){
-            t.pagante = part.trim();
-            fixed++;
-            break;
+      // Fix owner cats missing pagante field - check debt payments map
+      if(['riscaldamento_prop','condominio_prop','manutenzione'].includes(t.cat) && !t.pagante){
+        if(ownerPayments.has(key)){
+          const {pagante} = ownerPayments.get(key);
+          t.pagante = pagante;
+          fixed++;
+        } else {
+          // Try to extract from notes
+          const parts = (t.notes||'').split(' — ');
+          for(const part of parts){
+            if(isProprietario(part.trim())){
+              t.pagante = part.trim();
+              fixed++;
+              break;
+            }
           }
         }
       }
