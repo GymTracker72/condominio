@@ -987,6 +987,10 @@ const CATEGORIES = {
   tari_cond:         {label:'TARI (condomini)',           color:'amber',cls:'cat-manutenzione',condOwned:true},
   acqua_cond:        {label:'Acqua conguaglio (cond.)',   color:'blue', cls:'cat-condominio',  condOwned:true},
   riscaldamento_cond:{label:'Riscaldamento (condomini)', color:'amber',cls:'cat-manutenzione',condOwned:true},
+  riscaldamento_prop:{label:'Riscaldamento (proprietario)',color:'blue', cls:'cat-condominio'},
+  condominio_prop:   {label:'Condominio (proprietario)', color:'blue', cls:'cat-condominio'},
+  commissioni:       {label:'Commissioni bancarie',      color:'amber',cls:'cat-manutenzione'},
+  prop_payment:      {label:'Versamento proprietari',    color:'red',  cls:'cat-tasse'},
   utenze:            {label:'Utenze',                    color:'blue', cls:'cat-utenze'},
   altro:             {label:'Altro',                     color:'amber',cls:'cat-altro'},
 };
@@ -1138,6 +1142,8 @@ function goHome(){
 function openCondo(id){
   currentCondoId = id;
   loadData(id);
+  // Repair owner tx categories after data is loaded
+  setTimeout(repairOwnerTxCategories, 100);
   const c = currentCondo();
   // Update sidebar
   document.getElementById('sb-name').textContent = c.name;
@@ -3506,6 +3512,7 @@ async function driveLoadData(condoId, silent=false){
     }));
 
     if(currentCondoId===condoId){
+      setTimeout(repairOwnerTxCategories, 100);
       const av=document.querySelector('.view.active');
       if(av) navigate(av.id.replace('view-',''));
     }
@@ -3580,6 +3587,46 @@ document.addEventListener('click',e=>{
   const panel=document.getElementById('detail-panel');
   if(panel.classList.contains('open')&&!panel.contains(e.target)&&!e.target.closest('.tx-item')) closeDetail();
 });
+
+// ══ REPAIR ══
+// Fix txs that were created with condOwned categories when pagante was a proprietario
+// This happens when isProprietario() returned false at creation time
+function repairOwnerTxCategories(){
+  let fixed = 0;
+  // Build a map of debt payment dates+amounts to find owner payments
+  const ownerPayments = new Map();
+  debiti.forEach(d=>{
+    d.payments.forEach(p=>{
+      if(isProprietario(p.pagante)){
+        const key = p.date + '_' + p.amount;
+        const correctCat = d.cat==='riscaldamento' ? 'riscaldamento_prop'
+                         : d.cat==='condominio_ord' ? 'condominio_prop'
+                         : 'manutenzione';
+        ownerPayments.set(key, correctCat);
+      }
+    });
+  });
+  // Fix txs with wrong condOwned categories
+  txs.forEach(t=>{
+    if(t.type==='uscita' && CATEGORIES[t.cat]?.condOwned){
+      const key = t.date + '_' + t.amount;
+      if(ownerPayments.has(key)){
+        const correctCat = ownerPayments.get(key);
+        if(t.cat !== correctCat){
+          auditLog('movimento', t.id, 'cat', t.cat, correctCat, 'auto-repair');
+          t.cat = correctCat;
+          fixed++;
+        }
+      }
+    }
+  });
+  if(fixed > 0){
+    save();
+    showToast('✓ Corrette '+fixed+' categorie uscite proprietario');
+    console.log('repairOwnerTxCategories: fixed', fixed, 'txs');
+  }
+  return fixed;
+}
 
 // ══ INIT ══
 loadCondos();
