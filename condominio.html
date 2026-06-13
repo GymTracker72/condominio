@@ -2516,15 +2516,30 @@ function renderProprietari(){
   const el = document.getElementById('proprietari-content');
   if(!el) return;
 
-  // Build unified list: propPayments + owner uscite from txs (riscaldamento_prop, condominio_prop, manutenzione paid by owner)
-  const ownerCats = ['riscaldamento_prop','condominio_prop','manutenzione','commissioni'];
-  const txOwnerUscite = txs.filter(t=>
-    t.type==='uscita' &&
-    ownerCats.includes(t.cat) &&
-    isProprietario(t.party || (t.notes||'').split(' — ')[0])
-  );
+  // Extract pagante from notes field
+  // Notes format: "Pagante — desc" or "desc — Pagante"
+  function extractPagante(notes){
+    if(!notes) return null;
+    const parts = notes.split(' — ');
+    // Check each part if it's a known owner
+    for(const part of parts){
+      const trimmed = part.trim();
+      if(isProprietario(trimmed)) return trimmed;
+    }
+    return null;
+  }
 
-  // Merge: propPayments + txOwnerUscite (avoid duplicates by tx id)
+  // Build unified list from txs where pagante is a proprietario
+  const ownerCats = ['riscaldamento_prop','condominio_prop','manutenzione','commissioni'];
+  const txOwnerUscite = txs.filter(t=>{
+    if(t.type!=='uscita') return false;
+    if(!ownerCats.includes(t.cat)) return false;
+    // Check if pagante (from notes or party) is a proprietario
+    const pagante = extractPagante(t.notes) || t.pagante;
+    return pagante && isProprietario(pagante);
+  });
+
+  // Merge: propPayments + txOwnerUscite (avoid duplicates)
   const propPayIds = new Set(propPayments.map(p=>p.txId).filter(Boolean));
   const allPayments = [
     ...propPayments.map(p=>({
@@ -2534,13 +2549,16 @@ function renderProprietari(){
       method: p.method||'', notes: p.notes||'',
       cat: p.cat||'manutenzione', source:'prop'
     })),
-    ...txOwnerUscite.filter(t=>!propPayIds.has(t.id)).map(t=>({
-      id: t.id, date: t.date, amount: +t.amount,
-      nome: (t.notes||'').split(' — ')[0] || t.party || '—',
-      desc: t.desc||t.causale||'Uscita proprietario',
-      method: t.method||'', notes: t.notes||'',
-      cat: t.cat, source:'tx'
-    }))
+    ...txOwnerUscite.filter(t=>!propPayIds.has(t.id)).map(t=>{
+      const pagante = extractPagante(t.notes) || t.pagante || t.party || '—';
+      return {
+        id: t.id, date: t.date, amount: +t.amount,
+        nome: pagante,
+        desc: t.desc || 'Uscita proprietario',
+        method: t.method||'', notes: t.notes||'',
+        cat: t.cat, source:'tx'
+      };
+    })
   ].filter(p=>p.nome && p.nome !== '—' && p.amount > 0)
    .sort((a,b)=>b.date.localeCompare(a.date));
 
@@ -3658,23 +3676,34 @@ function repairOwnerTxCategories(){
   debiti.forEach(d=>{
     d.payments.forEach(p=>{
       if(isProprietario(p.pagante)){
-        const key = p.date + '_' + p.amount;
+        const key = p.date + '_' + (+p.amount).toFixed(2);
         const correctCat = d.cat==='riscaldamento' ? 'riscaldamento_prop'
                          : d.cat==='condominio_ord' ? 'condominio_prop'
                          : 'manutenzione';
-        ownerPayments.set(key, correctCat);
+        ownerPayments.set(key, {cat: correctCat, pagante: p.pagante});
       }
     });
   });
-  // Fix txs with wrong condOwned categories
+  // Also check txs notes for owner name
   txs.forEach(t=>{
-    if(t.type==='uscita' && CATEGORIES[t.cat]?.condOwned){
-      const key = t.date + '_' + t.amount;
-      if(ownerPayments.has(key)){
-        const correctCat = ownerPayments.get(key);
-        if(t.cat !== correctCat){
-          t.cat = correctCat;
-          fixed++;
+    if(t.type==='uscita'){
+      const key = t.date + '_' + (+t.amount).toFixed(2);
+      // Fix condOwned categories that belong to owner
+      if(CATEGORIES[t.cat]?.condOwned && ownerPayments.has(key)){
+        const {cat: correctCat, pagante} = ownerPayments.get(key);
+        t.cat = correctCat;
+        if(!t.pagante) t.pagante = pagante;
+        fixed++;
+      }
+      // Also fix 'manutenzione' txs that have owner in notes but missing pagante field
+      if(t.cat==='manutenzione' && !t.pagante && t.notes){
+        const parts = (t.notes||'').split(' — ');
+        for(const part of parts){
+          if(isProprietario(part.trim())){
+            t.pagante = part.trim();
+            fixed++;
+            break;
+          }
         }
       }
     }
