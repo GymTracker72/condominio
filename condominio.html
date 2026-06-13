@@ -2514,41 +2514,82 @@ function deletePropPayment(id){
 
 function renderProprietari(){
   const el = document.getElementById('proprietari-content');
-  if(!propPayments.length){
+  if(!el) return;
+
+  // Build unified list: propPayments + owner uscite from txs (riscaldamento_prop, condominio_prop, manutenzione paid by owner)
+  const ownerCats = ['riscaldamento_prop','condominio_prop','manutenzione','commissioni'];
+  const txOwnerUscite = txs.filter(t=>
+    t.type==='uscita' &&
+    ownerCats.includes(t.cat) &&
+    isProprietario(t.party || (t.notes||'').split(' — ')[0])
+  );
+
+  // Merge: propPayments + txOwnerUscite (avoid duplicates by tx id)
+  const propPayIds = new Set(propPayments.map(p=>p.txId).filter(Boolean));
+  const allPayments = [
+    ...propPayments.map(p=>({
+      id: p.id, date: p.date, amount: +p.amount,
+      nome: p.prop||p.name||'—',
+      desc: p.desc||'Versamento proprietario',
+      method: p.method||'', notes: p.notes||'',
+      cat: p.cat||'manutenzione', source:'prop'
+    })),
+    ...txOwnerUscite.filter(t=>!propPayIds.has(t.id)).map(t=>({
+      id: t.id, date: t.date, amount: +t.amount,
+      nome: (t.notes||'').split(' — ')[0] || t.party || '—',
+      desc: t.desc||t.causale||'Uscita proprietario',
+      method: t.method||'', notes: t.notes||'',
+      cat: t.cat, source:'tx'
+    }))
+  ].filter(p=>p.nome && p.nome !== '—' && p.amount > 0)
+   .sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(!allPayments.length){
     el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><h3>Nessun versamento registrato</h3><p>Aggiungi i versamenti ai proprietari dell\'appartamento</p></div>';
     return;
   }
-  // Group by proprietario
+
+  // Group by nome proprietario
   const byProp = {};
-  propPayments.forEach(p=>{ byProp[p.name]=(byProp[p.name]||[]); byProp[p.name].push(p); });
-  const totalVersato = propPayments.reduce((s,p)=>s+(+p.amount),0);
-  // Colors for avatars
+  allPayments.forEach(p=>{
+    byProp[p.nome] = byProp[p.nome] || [];
+    byProp[p.nome].push(p);
+  });
+
+  const totalVersato = allPayments.reduce((s,p)=>s+p.amount,0);
   const avatarColors = ['#2d6a4f','#1a4a8a','#b35c00','#6b3fa0','#c0392b','#1a7a7a'];
-  let html = `<div class="card" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:11px;color:var(--text-3);margin-bottom:4px;">TOTALE VERSATO AI PROPRIETARI</div><div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:var(--red);">${fmt(totalVersato)}</div></div><button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button></div>`;
+  const catLabels = {riscaldamento_prop:'Riscaldamento',condominio_prop:'Condominio',manutenzione:'Manutenzione',commissioni:'Commissioni',altro:'Altro'};
+
+  let html = `<div class="stats-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-label">Totale versato proprietari</div><div class="stat-value red">${fmt(totalVersato)}</div><div class="stat-delta">${allPayments.length} pagamenti</div></div>
+    ${Object.entries(byProp).map(([nome,pays])=>`<div class="stat-card"><div class="stat-label">${nome}</div><div class="stat-value blue">${fmt(pays.reduce((s,p)=>s+p.amount,0))}</div><div class="stat-delta">${pays.length} pagamenti</div></div>`).join('')}
+  </div>`;
+
+  html += `<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button>
+  </div>`;
+
   Object.entries(byProp).forEach(([nome, payments], gi)=>{
-    const tot = payments.reduce((s,p)=>s+(+p.amount),0);
+    const tot = payments.reduce((s,p)=>s+p.amount,0);
     const color = avatarColors[gi%avatarColors.length];
     const initials = nome.split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
     html += `<div class="card" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-        <div class="prop-avatar" style="background:${color}">${initials}</div>
+        <div style="width:38px;height:38px;border-radius:50%;background:${color};color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;">${initials}</div>
         <div style="flex:1"><div style="font-size:15px;font-weight:500">${nome}</div><div style="font-size:12px;color:var(--text-3)">${payments.length} versamenti · ${fmt(tot)} totale</div></div>
       </div>
-      ${payments.sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`
-        <div class="proprietari-row">
-          <div style="flex:1">
-            <div style="font-weight:500;font-size:13px">${p.notes||'Versamento'}</div>
-            <div style="font-size:11px;color:var(--text-3)">${fmtDate(p.date)} · ${p.method||''}</div>
-            ${p.files&&p.files.length?`<div class="files-grid" style="margin-top:6px">${p.files.map(f=>f.type&&f.type.startsWith('image/')?`<img class="file-thumb" src="${f.data}" onclick="window.open('${f.data}')" title="${f.name}" style="width:40px;height:40px;">`:`<div class="file-thumb-pdf" onclick="window.open('${f.data}')" style="width:40px;height:40px;font-size:16px;">📄</div>`).join('')}</div>`:''}
-          </div>
-          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--red);margin-right:8px;">${fmt(p.amount)}</div>
-          <div style="display:flex;gap:4px;">
-            <button class="tx-btn" onclick="openPropModal('${p.id}')">✎</button>
-            <button class="tx-btn del" onclick="deletePropPayment('${p.id}')">✕</button>
-          </div>
+      ${payments.map(p=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="color:var(--text-3);width:86px;flex-shrink:0">${fmtDate(p.date)}</span>
+          <span style="flex:1;color:var(--text-2)">${p.desc}</span>
+          <span style="font-size:11px;color:var(--text-3);padding:2px 7px;border-radius:10px;background:var(--surface2);">${catLabels[p.cat]||p.cat}</span>
+          <span style="font-size:11px;color:var(--text-3)">${p.method||''}</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--red)">${fmt(p.amount)}</span>
+          ${p.source==='prop'?`<button class="btn btn-icon" onclick="deletePropPayment('${p.id}')" style="padding:3px 6px;font-size:11px;color:var(--red);border-color:var(--red-light);">✕</button>`:''}
         </div>`).join('')}
     </div>`;
   });
+
   el.innerHTML = html;
 }
 
