@@ -2,11 +2,11 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" viewport-fit=cover">
 <title>Gestione Condomini</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="onGsiLoaded()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
@@ -321,16 +321,276 @@ textarea{resize:vertical;min-height:70px;}
 .ctx-item.danger:hover{background:var(--red-bg);}
 .ctx-sep{height:1px;background:var(--border);margin:4px 0;}
 
-@media(max-width:720px){
-  .sidebar{width:60px;}
-  .sidebar-logo-name,.sidebar-logo-addr,.sidebar-back,.nav-label,.nav-item span,.sidebar-footer .year-badge,.drive-label strong{display:none;}
-  .nav-item{justify-content:center;padding:10px;}
-  .main{margin-left:60px;padding:20px 16px;}
-  .bilancio-grid{grid-template-columns:1fr;}
-  .detail-panel{width:100%;}
-  .form-grid{grid-template-columns:1fr;}
-  .condo-grid{grid-template-columns:1fr;}
+
+
+/* ══════════════════════════════════════
+   RESPONSIVE — MOBILE FIRST
+   Breakpoints:
+   xs: < 480px  (iPhone SE, small phones)
+   sm: < 640px  (iPhone standard)
+   md: < 768px  (large phones, small tablet)
+   lg: < 1024px (tablet, iPad)
+   xl: >= 1024px (desktop)
+══════════════════════════════════════ */
+
+/* ── HAMBURGER BUTTON (mobile only) ── */
+#hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 18px;
+  flex-shrink: 0;
 }
+
+/* ── SIDEBAR OVERLAY (mobile) ── */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 90;
+  backdrop-filter: blur(2px);
+}
+#sidebar-overlay.open { display: block; }
+
+/* ── BOTTOM NAV (mobile only) ── */
+#bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+}
+.bottom-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-width: 52px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  color: var(--text-3);
+  transition: color .15s;
+}
+.bottom-nav-item.active { color: var(--text-1); }
+.bottom-nav-item .bni { font-size: 20px; line-height: 1; }
+.bottom-nav-item .bnl { font-size: 10px; font-weight: 500; }
+
+/* ── TABLET: 768px - 1024px ── */
+@media (max-width: 1024px) {
+  :root { --sidebar-w: 200px; }
+  #main-content { padding: 20px 20px 40px; }
+  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-grid-3 { grid-template-columns: 1fr 1fr; }
+  .modal { max-width: 95vw; }
+  #detail-panel { width: 320px; }
+}
+
+/* ── MOBILE: < 768px ── */
+@media (max-width: 767px) {
+  :root {
+    --sidebar-w: 260px;
+    --header-h: 52px;
+    font-size: 15px;
+  }
+
+  /* Show hamburger, hide sidebar by default */
+  #hamburger-btn { display: flex; }
+  #bottom-nav { display: block; }
+
+  /* Sidebar becomes a drawer */
+  body { overflow-x: hidden; }
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    z-index: 100;
+    width: var(--sidebar-w) !important;
+    box-shadow: var(--shadow-lg);
+  }
+  #sidebar.open {
+    transform: translateX(0);
+  }
+  #app-screen { flex-direction: column; }
+  #main { width: 100%; }
+  #main-header {
+    padding: 0 14px;
+    gap: 10px;
+  }
+  #main-content {
+    padding: 16px 14px 80px;
+  }
+
+  /* Stack all grids to 1 column */
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .dash-grid { grid-template-columns: 1fr; gap: 12px; }
+  .dash-grid-3 { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-grid,
+  .form-grid[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .form-group.full,
+  .form-group.span3 { grid-column: 1 !important; }
+  .immobili-grid { grid-template-columns: 1fr; }
+
+  /* Cards */
+  .card { padding: 14px; border-radius: 14px; }
+  .card-sm { padding: 10px 12px; }
+  .stat-card { padding: 12px 14px; border-radius: 12px; }
+  .stat-value { font-size: 18px; }
+  .stat-label { font-size: 10px; }
+
+  /* Modals — full screen on mobile */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    max-width: 100%;
+    width: 100%;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 92vh;
+    padding: 20px 16px 32px;
+    margin: 0;
+  }
+  .modal-lg, .modal-xl { max-width: 100%; }
+  .modal-header { margin-bottom: 16px; }
+  .modal-title { font-size: 16px; }
+  .modal-footer { padding-top: 14px; margin-top: 16px; }
+
+  /* Buttons — bigger touch targets */
+  .btn { padding: 10px 16px; font-size: 14px; min-height: 44px; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; min-height: 38px; }
+  .btn-xs { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+  .btn-icon { width: 38px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* Forms */
+  input, select, textarea { padding: 11px 12px; font-size: 16px !important; border-radius: 10px; }
+  label { font-size: 13px; }
+
+  /* Tables → scrollable */
+  .table-wrap { border-radius: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+  th, td { padding: 10px 12px; font-size: 12px; }
+
+  /* Debt cards */
+  .debt-card { border-radius: 14px; }
+  .debt-card-header { padding: 14px; gap: 10px; }
+  .debt-amounts { gap: 12px; }
+  .debt-amt strong { font-size: 14px; }
+
+  /* Payment rows */
+  .payment-row { padding: 10px 14px; flex-wrap: wrap; gap: 6px; }
+  .payer-group-header { padding: 10px 14px; }
+
+  /* Detail panel — full screen */
+  #detail-panel {
+    width: 100%;
+    top: auto;
+    height: 85vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Page header */
+  .page-header { flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .page-title { font-size: 20px; }
+  .page-subtitle { font-size: 12px; }
+  .page-actions { width: 100%; justify-content: flex-end; }
+
+  /* Nav items in drawer */
+  .nav-item { padding: 10px 14px; font-size: 14px; }
+  .nav-item .ni { font-size: 17px; }
+
+  /* Segment buttons */
+  .segment { gap: 5px; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .seg-btn { white-space: nowrap; padding: 7px 14px; min-height: 36px; flex-shrink: 0; }
+
+  /* Tabs */
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+  .tab { white-space: nowrap; padding: 7px 14px; min-height: 36px; }
+
+  /* Search */
+  .search-box { padding: 10px 12px; }
+  .search-box input { font-size: 15px !important; }
+
+  /* Alerts */
+  .alert { font-size: 12px; padding: 10px 12px; }
+
+  /* Wizard steps */
+  .wizard-steps { gap: 0; overflow-x: auto; }
+  .step-label { font-size: 9px; }
+
+  /* Home screen */
+  #home-screen { padding: 20px 16px; }
+  .immobile-card { padding: 16px; }
+  .immobile-name { font-size: 15px; }
+
+  /* Summary table */
+  .summary-table { font-size: 12px; }
+  .summary-table th, .summary-table td { padding: 8px 10px; }
+
+  /* Audit rows */
+  .audit-row { flex-direction: column; gap: 3px; }
+  .audit-time { width: auto; }
+
+  /* Main header compact */
+  .year-sel { padding: 5px 8px; font-size: 12px; }
+  #btn-migrate { display: none; }
+  #header-current-view { font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* ── SMALL PHONES: < 390px ── */
+@media (max-width: 389px) {
+  :root { font-size: 14px; }
+  #main-content { padding: 12px 12px 80px; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .dash-grid-3 { grid-template-columns: 1fr; }
+  .card { padding: 12px; }
+  .stat-value { font-size: 16px; }
+  .page-title { font-size: 18px; }
+  .modal { padding: 16px 14px 28px; }
+  .bottom-nav-item { min-width: 44px; padding: 5px 8px; }
+  .bottom-nav-item .bni { font-size: 18px; }
+}
+
+/* ── LARGE DESKTOP: > 1440px ── */
+@media (min-width: 1440px) {
+  :root { --sidebar-w: 240px; }
+  #main-content { padding: 32px 36px 56px; max-width: 1400px; }
+  .stats-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  h1, .page-title { font-size: 28px; }
+}
+
+/* ── SAFE AREA (iPhone notch/home bar) ── */
+@supports (padding: max(0px)) {
+  #main-header { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  #main-content { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  #sidebar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+
+
+#sidebar-close-btn { display: none; }
+@media (max-width: 767px) {
+  #sidebar-close-btn { display: block !important; }
+}
+
 </style>
 </head>
 <body>
@@ -1089,13 +1349,13 @@ function renderCondoGrid(){
   if(!grid) return;;
   if(!condos.length){
     grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--text-3);">
-        <div style="font-size:36px;margin-bottom:12px;">☁</div>
-        <div style="font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Nessun condominio</div>
-        <div style="font-size:13px;margin-bottom:20px;">Se hai già dei dati su Google Drive, connettiti per recuperarli.</div>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="driveAction()">☁ Connetti Google Drive</button>
-          <button class="btn btn-ghost" onclick="openCondoModal()">+ Nuovo condominio</button>
+      <div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-3);">
+        <div style="font-size:48px;margin-bottom:14px;opacity:.5;">☁</div>
+        <div style="font-size:16px;font-weight:500;color:var(--text-2);margin-bottom:8px;">Nessun condominio</div>
+        <div style="font-size:13px;margin-bottom:24px;max-width:280px;margin-left:auto;margin-right:auto;line-height:1.5;">Se hai già dei dati su Google Drive, connettiti per recuperarli automaticamente.</div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;max-width:280px;margin:0 auto;">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;min-height:48px;" onclick="driveAction(document.getElementById('home-drive-pill'))">☁ Connetti Google Drive</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;min-height:48px;" onclick="openCondoModal()">+ Nuovo condominio</button>
         </div>
       </div>`;
     return;
@@ -1245,7 +1505,9 @@ function deleteCondoConfirm(id){
 
 // ══ NAVIGATION (app) ══
 function navigate(view){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  closeSidebar();
+  updateBottomNav(view);
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('view-'+view).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+view+"'")) n.classList.add('active'); });
@@ -3401,11 +3663,24 @@ function exportXLSX(){
 
 // ══ GOOGLE DRIVE ══
 function setDriveStatus(state,msg){
-  ['drive-dot','home-drive-dot'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='drive-dot'+(state?' '+state:''); });
-  ['drive-label','home-drive-status'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=`<strong>Google Drive</strong>${msg}`; });
-  // Update home subtitle
+  ['drive-dot','home-drive-dot'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.className='drive-dot'+(state?' '+state:'');
+  });
+  // Sidebar drive label
+  const lbl = document.getElementById('drive-label');
+  if(lbl) lbl.innerHTML=`<strong>Google Drive</strong>${msg}`;
+  // Home drive status (new two-line layout)
+  const hsub = document.getElementById('home-drive-sublabel');
+  if(hsub) hsub.textContent = msg;
+  const hstat = document.getElementById('home-drive-status');
+  if(hstat) hstat.textContent = 'Google Drive';
+  // Also update old home-drive-status if present
+  const old = document.getElementById('home-drive-status');
+  if(old && !hsub) old.innerHTML=`<strong>Google Drive</strong>${msg}`;
+  // Update subtitle
   const sub=document.getElementById('home-drive-label');
-  if(sub) sub.textContent = state==='connected'?'Dati sincronizzati su Google Drive':state==='syncing'?'Sincronizzazione in corso...':state==='error'?'Errore sincronizzazione Drive':'Dati salvati in locale';
+  if(sub) sub.textContent = state==='connected'?'Sincronizzato con Google Drive':state==='syncing'?'Sincronizzazione...':state==='error'?'Errore Drive':'Dati in locale';
 }
 function driveAction(btn){
   if(driveAccessToken) showDriveMenu(btn);
@@ -3431,15 +3706,36 @@ function showDriveMenu(sourceBtn){
   document.body.appendChild(menu);
   setTimeout(()=>document.addEventListener('click',closeCtxMenu,{once:true}),50);
 }
+let _gsiLoaded = false;
+let _pendingSignIn = false;
+
+function onGsiLoaded(){
+  _gsiLoaded = true;
+  // If user already clicked sign in, proceed now
+  if(_pendingSignIn){ _pendingSignIn = false; driveSignIn(); }
+}
+
 function driveSignIn(){
-  if(!window.google){
-    setDriveStatus('syncing','Caricamento libreria...');
-    let attempts = 0;
-    const wait = setInterval(()=>{
-      attempts++;
-      if(window.google){ clearInterval(wait); driveSignIn(); }
-      else if(attempts > 20){ clearInterval(wait); setDriveStatus('error','Libreria non caricata'); showToast('Errore: libreria Google non caricata. Controlla la connessione.'); }
-    }, 500);
+  if(!window.google || !_gsiLoaded){
+    _pendingSignIn = true;
+    setDriveStatus('syncing','Caricamento libreria Google...');
+    // Try to reload GSI if not loaded after 3 seconds
+    setTimeout(()=>{
+      if(!window.google || !_gsiLoaded){
+        // Try dynamic reload
+        const existing = document.querySelector('script[src*="gsi/client"]');
+        if(existing) existing.remove();
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.onload = ()=>{ _gsiLoaded=true; if(_pendingSignIn){ _pendingSignIn=false; driveSignIn(); } };
+        s.onerror = ()=>{ 
+          setDriveStatus('error','Libreria non caricata');
+          showToast('Libreria Google non caricata — verifica la connessione e riprova');
+          _pendingSignIn = false;
+        };
+        document.head.appendChild(s);
+      }
+    }, 3000);
     return;
   }
   setDriveStatus('syncing','Connessione...');
@@ -3728,6 +4024,44 @@ function repairOwnerTxCategories(){
     }
   }
   return fixed;
+}
+
+// ══ MOBILE NAVIGATION ══
+function toggleSidebar(){
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if(!sidebar || !overlay) return;
+  const isOpen = sidebar.classList.contains('open');
+  if(isOpen){ closeSidebar(); } else { openSidebar(); }
+}
+
+function openSidebar(){
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if(sidebar) sidebar.classList.add('open');
+  if(overlay) overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar(){
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if(sidebar) sidebar.classList.remove('open');
+  if(overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function updateBottomNav(view){
+  const map = {dashboard:'bn-dashboard', movimenti:'bn-movimenti',
+               entrate:'bn-movimenti', uscite:'bn-movimenti', tutti:'bn-movimenti',
+               debiti:'bn-debiti', rientro:'bn-debiti', pagamenti_prop:'bn-debiti', rate:'bn-debiti',
+               anagrafica:'bn-anagrafica', allegati:'bn-anagrafica', audit:'bn-anagrafica'};
+  document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
+  const activeId = map[view];
+  if(activeId){
+    const el = document.getElementById(activeId);
+    if(el) el.classList.add('active');
+  }
 }
 
 // ══ INIT ══
