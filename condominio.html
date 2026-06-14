@@ -1697,9 +1697,52 @@ function editTx(id){
   document.getElementById('modal-tx').classList.add('open');
 }
 function deleteTx(id){
-  if(!confirm('Eliminare questo movimento?')) return;
-  txs=txs.filter(t=>t.id!==id); save(); showToast('Eliminato');
-  const av=document.querySelector('.view.active'); if(av) navigate(av.id.replace('view-',''));
+  const tx = txs.find(t=>t.id===id);
+  const desc = tx ? (tx.desc||'movimento del '+fmtDate(tx.date)) : 'questo movimento';
+  if(!confirm('Eliminare: '+desc+'?')) return;
+
+  // Remove from txs
+  txs = txs.filter(t=>t.id!==id);
+
+  if(tx){
+    // Cascade: remove from propPayments if linked
+    if(tx.propPayId){
+      propPayments = propPayments.filter(p=>p.id!==tx.propPayId);
+    } else {
+      // Fallback: match by date+amount+pagante
+      propPayments = propPayments.filter(p=>{
+        if(p.txId === id) return false;  // direct link
+        if(p.date!==tx.date) return true;
+        if(Math.abs((+p.amount)-(+tx.amount))>0.01) return true;
+        const ppName = p.prop||p.name||'';
+        return ppName !== (tx.pagante||tx.party||'');
+      });
+    }
+
+    // Cascade: remove from debiti payments if linked
+    if(tx.debtPayId && tx.debtId){
+      const d = debiti.find(x=>x.id===tx.debtId);
+      if(d){ d.payments = d.payments.filter(p=>p.id!==tx.debtPayId); d.open=true; }
+    } else if(tx.type==='uscita'){
+      // Fallback: find matching debt payment
+      debiti.forEach(d=>{
+        d.payments = d.payments.filter(p=>{
+          if(p.date!==tx.date) return true;
+          if(Math.abs((+p.amount)-(+tx.amount))>0.01) return true;
+          return false;
+        });
+      });
+    }
+
+    // Delete Drive files if any
+    (tx.files||[]).forEach(f=>{ if(f.driveFileId) deleteFileFromDrive(f.driveFileId); });
+  }
+
+  addAudit('tx', id, 'delete', '', JSON.stringify(tx), '');
+  save();
+  showToast('Movimento eliminato');
+  const av=document.querySelector('.view.active');
+  if(av) navigate(av.id.replace('view-',''));
   closeDetail();
 }
 
@@ -2491,13 +2534,16 @@ function saveDebtPayment(){
   const txCat = payerIsOwner
     ? (d.cat==='riscaldamento' ? 'riscaldamento_prop' : d.cat==='condominio_ord' ? 'condominio_prop' : 'manutenzione')
     : (d.cat==='riscaldamento' ? 'riscaldamento_cond' : d.cat==='condominio_ord' ? 'condominio' : 'manutenzione');
+  const txId = uid();
   const tx = {
-    id: uid(), type:'uscita',
+    id: txId, type:'uscita',
     desc: 'Pagamento: ' + d.desc,
     amount, date, cat: txCat, method,
     pagante: pagante,
     party: 'Condominio ' + (currentCondo()?.name||''),
     notes: (pagante?pagante+' — ':'') + d.desc + (notes?' — '+notes:''),
+    debtId: debtId,      // ← link to voce debitoria
+    debtPayId: payment.id, // ← link to specific payment
     files: [], fileData: null
   };
   txs.push(tx);
@@ -2519,12 +2565,18 @@ function saveDebtPayment(){
       id: uid(),
       date, amount,
       prop: pagante,
+      name: pagante,
       desc: 'Pagamento debito: ' + d.desc,
       method,
       notes: (notes||'') + (commission>0?' (comm. '+fmt(commission)+')':''),
       cat: txCat,
+      txId: txId,         // link to movimenti (updated)
+      debtId: d.id,       // link to voce debitoria
+      payId: payment.id,  // link to specific payment
     };
     propPayments.push(propPay);
+    // Link tx back to propPayment
+    tx.propPayId = propPay.id;
   }
   save();
   closeModal('modal-debt-pay');
@@ -2720,10 +2772,29 @@ function deleteDebtPayment(debtId, payId){
   const p = d.payments.find(x=>x.id===payId);
   const desc = p ? (fmtDate(p.date)+' — '+fmt(p.amount)) : 'questo pagamento';
   if(!confirm('Eliminare il pagamento: '+desc+'?')) return;
-  // Delete file from Drive if exists
+  // Delete files from Drive
   if(p && p.files) p.files.forEach(f=>{ if(f.driveFileId) deleteFileFromDrive(f.driveFileId); });
-  d.payments = d.payments.filter(p=>p.id!==payId);
+  // Remove from debiti
+  d.payments = d.payments.filter(x=>x.id!==payId);
   d.open = true;
+  // Cascade: remove corresponding tx from movimenti
+  if(p){
+    txs = txs.filter(t=>{
+      if(t.debtPayId === payId) return false;       // direct link
+      if(t.type!=='uscita') return true;
+      if(t.date!==p.date) return true;
+      if(Math.abs((+t.amount)-(+p.amount))>0.01) return true;
+      // Only remove if pagante matches
+      const tPag = t.pagante || extractPaganteFromNotes(t.notes) || '';
+      return tPag !== (p.pagante||'');
+    });
+    // Cascade: remove from propPayments (by direct link or date+amount)
+    propPayments = propPayments.filter(pp=>{
+      if(pp.debtId===debtId && pp.payId===payId) return false;
+      if(pp.txId && txs.some(t=>t.id===pp.txId)) return true; // tx still exists
+      return true;
+    });
+  }
   save(); renderDebiti();
 }
 
@@ -2755,24 +2826,94 @@ function savePropPayment(){
   const id = editId || uid();
   // Auto-add to proprietari list
   if(!proprietari.includes(name)) proprietari.push(name);
-  const pp = {id, name, amount, date, method:document.getElementById('pr-method').value, notes:document.getElementById('pr-notes').value.trim(), files:[...propSelectedFiles]};
-  if(editId){ const idx=propPayments.findIndex(x=>x.id===editId); if(idx!==-1) propPayments[idx]=pp; }
-  else propPayments.push(pp);
-  // Auto-create uscita nel bilancio
-  if(!editId){
-    const tx = {id:uid(), type:'uscita', desc:'Versamento a '+name, amount, date, cat:'prop_payment', method:pp.method, party:name, notes:pp.notes, files:propSelectedFiles.map(f=>({data:f.data,name:f.name,type:f.type}))};
+  const method = document.getElementById('pr-method').value;
+  const notes = document.getElementById('pr-notes').value.trim();
+  const pp = {id, prop:name, name, amount, date, method, notes, files:[...propSelectedFiles], cat:'prop_payment'};
+  if(editId){
+    const idx=propPayments.findIndex(x=>x.id===editId);
+    if(idx!==-1){
+      // Update: also update corresponding tx
+      const oldPp = propPayments[idx];
+      propPayments[idx] = {...pp, txId: oldPp.txId};
+      if(oldPp.txId){
+        const tx = txs.find(t=>t.id===oldPp.txId);
+        if(tx){ tx.amount=amount; tx.date=date; tx.method=method; tx.notes=notes; tx.party=name; }
+      }
+    }
+  } else {
+    // Create tx first, then link
+    const txId = uid();
+    const tx = {
+      id: txId, type:'uscita',
+      desc: 'Versamento proprietario: '+name,
+      amount, date, cat:'manutenzione', method,
+      pagante: name, party: name,
+      notes: (name+' — '+notes).replace(/ — $/,''),
+      files: propSelectedFiles.map(f=>({data:f.data,name:f.name,type:f.type})),
+      propPayId: id  // ← link back to propPayment
+    };
     txs.push(tx);
+    pp.txId = txId;  // ← link to tx
+    propPayments.push(pp);
   }
   save();
   closeModal('modal-prop');
-  showToast('Versamento salvato ✓');
+  showToast('Versamento salvato');
   renderProprietari();
 }
 
 function deletePropPayment(id){
-  if(!confirm('Eliminare questo versamento?')) return;
+  const p = propPayments.find(x=>x.id===id);
+  const desc = p ? (fmtDate(p.date)+' — '+fmt(p.amount)) : 'questo versamento';
+  if(!confirm('Eliminare il versamento: '+desc+'?\n\nVerrà rimosso anche dai Movimenti e dai Debiti condominio.')) return;
+
+  // 1. Remove from propPayments
   propPayments = propPayments.filter(x=>x.id!==id);
-  save(); renderProprietari();
+
+  // 2. Remove corresponding tx in movimenti (matched by txId or date+amount+pagante)
+  if(p){
+    if(p.txId){
+      txs = txs.filter(t=>t.id!==p.txId);
+    } else {
+      // Fallback: match by date + amount + pagante in notes
+      txs = txs.filter(t=>{
+        if(t.type!=='uscita') return true;
+        if(t.date!==p.date) return true;
+        if(Math.abs((+t.amount)-(+p.amount))>0.01) return true;
+        const pag = t.pagante || extractPaganteFromNotes(t.notes);
+        return pag !== (p.prop||p.name);
+      });
+    }
+
+    // 3. Remove corresponding payment from debiti (if linked)
+    if(p.debtId && p.payId){
+      const d = debiti.find(x=>x.id===p.debtId);
+      if(d){ d.payments = d.payments.filter(pay=>pay.id!==p.payId); d.open=true; }
+    } else {
+      // Fallback: find debt payment by date+amount+pagante
+      debiti.forEach(d=>{
+        d.payments = d.payments.filter(pay=>{
+          if(pay.date!==p.date) return true;
+          if(Math.abs((+pay.amount)-(+p.amount))>0.01) return true;
+          return (pay.pagante||'') !== (p.prop||p.name||'');
+        });
+      });
+    }
+  }
+
+  addAudit('propPayment', id, 'delete', '', JSON.stringify(p), '');
+  save();
+  showToast('Versamento eliminato');
+  renderProprietari();
+}
+
+function extractPaganteFromNotes(notes){
+  if(!notes) return null;
+  const parts = notes.split(' — ');
+  for(const part of parts){
+    if(isProprietario(part.trim())) return part.trim();
+  }
+  return null;
 }
 
 function renderProprietari(){
