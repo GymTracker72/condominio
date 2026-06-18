@@ -1160,6 +1160,11 @@ textarea{resize:vertical;min-height:70px;}
         </select>
       </div>
       <div class="form-group full"><label>Note</label><input type="text" id="pr-notes" placeholder="Quota affitto, competenze..."></div>
+      <div class="form-group full" style="background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
+        <label style="color:var(--amber);">Commissione bancaria/postale (€) — opzionale</label>
+        <input type="number" id="pr-commission" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+        <div style="font-size:11px;color:var(--amber);margin-top:5px;">Aggiunta al totale versato, registrata come uscita separata.</div>
+      </div>
       <div class="form-group full">
         <label>Allegati (fino a 5)</label>
         <div class="file-zone" onclick="document.getElementById('pr-files').click()">
@@ -1712,8 +1717,12 @@ function deleteTx(id){
   txs = txs.filter(t=>t.id!==id);
 
   if(tx){
-    // Cascade: remove from propPayments if linked
+    // Cascade: remove from propPayments if linked (and its commission tx too)
     if(tx.propPayId){
+      const linkedPp = propPayments.find(p=>p.id===tx.propPayId);
+      if(linkedPp && linkedPp.txCommId && linkedPp.txCommId !== id){
+        txs = txs.filter(t=>t.id!==linkedPp.txCommId);
+      }
       propPayments = propPayments.filter(p=>p.id!==tx.propPayId);
     } else {
       // Fallback: match by date+amount+pagante
@@ -2831,8 +2840,9 @@ function openPropModal(editId){
   propSelectedFiles = [];
   const p = editId ? propPayments.find(x=>x.id===editId) : null;
   document.getElementById('modal-prop-title').textContent = editId ? 'Modifica versamento' : 'Nuovo versamento proprietario';
-  document.getElementById('pr-name').value = p ? p.name : '';
+  document.getElementById('pr-name').value = p ? (p.prop||p.name) : '';
   document.getElementById('pr-amount').value = p ? p.amount : '';
+  document.getElementById('pr-commission').value = p ? (p.commission||'') : '';
   document.getElementById('pr-date').value = p ? p.date : new Date().toISOString().split('T')[0];
   document.getElementById('pr-method').value = p ? (p.method||'bonifico') : 'bonifico';
   document.getElementById('pr-notes').value = p ? (p.notes||'') : '';
@@ -2846,6 +2856,7 @@ function openPropModal(editId){
 function savePropPayment(){
   const name = document.getElementById('pr-name').value.trim();
   const amount = parseFloat(document.getElementById('pr-amount').value);
+  const commission = parseFloat(document.getElementById('pr-commission').value)||0;
   const date = document.getElementById('pr-date').value;
   if(!name){ showToast('Inserisci nome proprietario'); return; }
   if(!amount||amount<=0){ showToast('Inserisci importo'); return; }
@@ -2856,20 +2867,47 @@ function savePropPayment(){
   if(!proprietari.includes(name)) proprietari.push(name);
   const method = document.getElementById('pr-method').value;
   const notes = document.getElementById('pr-notes').value.trim();
-  const pp = {id, prop:name, name, amount, date, method, notes, files:[...propSelectedFiles], cat:'prop_payment'};
+  const pp = {
+    id, prop:name, name, amount, commission, total: amount+commission,
+    date, method, notes, files:[...propSelectedFiles], cat:'prop_payment'
+  };
   if(editId){
     const idx=propPayments.findIndex(x=>x.id===editId);
     if(idx!==-1){
-      // Update: also update corresponding tx
       const oldPp = propPayments[idx];
-      propPayments[idx] = {...pp, txId: oldPp.txId};
+      propPayments[idx] = {...pp, txId: oldPp.txId, txCommId: oldPp.txCommId};
+      // Update linked main tx
       if(oldPp.txId){
         const tx = txs.find(t=>t.id===oldPp.txId);
-        if(tx){ tx.amount=amount; tx.date=date; tx.method=method; tx.notes=notes; tx.party=name; }
+        if(tx){ tx.amount=amount; tx.date=date; tx.method=method; tx.notes=notes; tx.party=name; tx.pagante=name; }
+      }
+      // Update or create/remove linked commission tx
+      if(commission > 0){
+        if(oldPp.txCommId){
+          const tc = txs.find(t=>t.id===oldPp.txCommId);
+          if(tc){ tc.amount=commission; tc.date=date; tc.method=method; tc.pagante=name; }
+          else { addCommissionTx(); }
+        } else { addCommissionTx(); }
+      } else if(oldPp.txCommId){
+        // Commission removed — delete the tx
+        txs = txs.filter(t=>t.id!==oldPp.txCommId);
+        propPayments[idx].txCommId = null;
+      }
+      function addCommissionTx(){
+        const txCommId = uid();
+        txs.push({
+          id: txCommId, type:'uscita',
+          desc: 'Commissione versamento: '+name,
+          amount: commission, date, cat:'commissioni', method,
+          pagante: name, party: method==='bonifico'?'Banca':'Posta',
+          notes: 'Commissione su versamento di '+name,
+          propPayId: id, files:[], fileData:null
+        });
+        propPayments[idx].txCommId = txCommId;
       }
     }
   } else {
-    // Create tx first, then link
+    // Create main tx
     const txId = uid();
     const tx = {
       id: txId, type:'uscita',
@@ -2878,10 +2916,23 @@ function savePropPayment(){
       pagante: name, party: name,
       notes: (name+' — '+notes).replace(/ — $/,''),
       files: propSelectedFiles.map(f=>({data:f.data,name:f.name,type:f.type})),
-      propPayId: id  // ← link back to propPayment
+      propPayId: id
     };
     txs.push(tx);
-    pp.txId = txId;  // ← link to tx
+    pp.txId = txId;
+    // Create commission tx if present
+    if(commission > 0){
+      const txCommId = uid();
+      txs.push({
+        id: txCommId, type:'uscita',
+        desc: 'Commissione versamento: '+name,
+        amount: commission, date, cat:'commissioni', method,
+        pagante: name, party: method==='bonifico'?'Banca':'Posta',
+        notes: 'Commissione su versamento di '+name,
+        propPayId: id, files:[], fileData:null
+      });
+      pp.txCommId = txCommId;
+    }
     propPayments.push(pp);
   }
   save();
@@ -2911,6 +2962,11 @@ function deletePropPayment(id){
         const pag = t.pagante || extractPaganteFromNotes(t.notes);
         return pag !== (p.prop||p.name);
       });
+    }
+
+    // 2b. Remove commission tx if present
+    if(p.txCommId){
+      txs = txs.filter(t=>t.id!==p.txCommId);
     }
 
     // 3. Remove corresponding payment from debiti (if linked)
