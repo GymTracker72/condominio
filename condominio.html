@@ -1087,6 +1087,13 @@ textarea{resize:vertical;min-height:70px;}
       <button class="modal-close" onclick="closeModal('modal-debt-pay')">✕</button>
     </div>
     <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="dp-debt-name"></div>
+    <div class="form-group full" style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(26,74,138,.15);margin-bottom:14px;">
+      <label style="color:var(--blue);display:flex;align-items:center;gap:6px;">
+        ✎ Totale dovuto della voce (€) — modifica se l'amministratore ha aggiornato l'importo
+      </label>
+      <input type="number" id="dp-voce-total" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+      <div style="font-size:11px;color:var(--blue);margin-top:5px;" id="dp-voce-total-hint"></div>
+    </div>
     <div class="form-grid">
       <div class="form-group"><label>Importo pagato (€)</label><input type="number" id="dp-amount" placeholder="0,00" step="0.01" min="0"></div>
       <div class="form-group"><label>Data pagamento</label><input type="date" id="dp-date"></div>
@@ -2490,6 +2497,8 @@ function openDebtPayModal(debtId){
   const paid = d.payments.reduce((s,p)=>s+(+p.amount),0);
   const residuo = d.total - paid;
   document.getElementById('dp-debt-name').textContent = d.desc + ' — residuo: ' + fmt(residuo);
+  document.getElementById('dp-voce-total').value = d.total;
+  document.getElementById('dp-voce-total-hint').textContent = 'Importo attuale registrato: ' + fmt(d.total) + ' · versato finora: ' + fmt(paid);
   document.getElementById('dp-amount').value = '';
   document.getElementById('dp-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('dp-method').value = 'bonifico';
@@ -2517,6 +2526,15 @@ function saveDebtPayment(){
   if(!date){ showToast('Inserisci data'); return; }
   const d = debiti.find(x=>x.id===debtId);
   if(!d) return;
+
+  // Apply edited total dovuto, if changed
+  const newTotal = parseFloat(document.getElementById('dp-voce-total').value);
+  if(!isNaN(newTotal) && newTotal>0 && Math.abs(newTotal - d.total) > 0.001){
+    addAudit('voceDebitoria', d.id, 'update', 'total', d.total, newTotal);
+    d.total = newTotal;
+    showToast('Totale voce aggiornato a ' + fmt(newTotal));
+  }
+
   const method = document.getElementById('dp-method').value;
   const notes = document.getElementById('dp-notes').value.trim();
   const pagante = document.getElementById('dp-pagante').value.trim();
@@ -2548,35 +2566,45 @@ function saveDebtPayment(){
   };
   txs.push(tx);
   // Se presente commissione → uscita separata che NON scala il debito
+  let txCommId = null;
   if(commission > 0){
+    txCommId = uid();
     const txComm = {
-      id: uid(), type:'uscita',
+      id: txCommId, type:'uscita',
       desc: 'Commissione pagamento: ' + d.desc,
       amount: commission, date, cat: 'commissioni', method,
+      pagante: pagante,
       party: method==='bonifico'?'Banca':'Posta',
       notes: 'Commissione su pagamento ' + d.desc + (notes?' — '+notes:''),
+      debtId: debtId,
+      debtPayId: payment.id,
       files: [], fileData: null
     };
     txs.push(txComm);
   }
-  // Se pagante è proprietario → crea anche voce in Vers. proprietari
+  // Se pagante è proprietario → crea anche voce in Vers. proprietari (importo + commissione insieme)
   if(payerIsOwner && pagante){
     const propPay = {
       id: uid(),
-      date, amount,
+      date,
+      amount: amount,           // importo del pagamento al condominio
+      commission: commission,   // commissione separata, mostrata insieme
+      total: amount + commission, // totale versato dal proprietario
       prop: pagante,
       name: pagante,
       desc: 'Pagamento debito: ' + d.desc,
       method,
-      notes: (notes||'') + (commission>0?' (comm. '+fmt(commission)+')':''),
+      notes: notes||'',
       cat: txCat,
-      txId: txId,         // link to movimenti (updated)
-      debtId: d.id,       // link to voce debitoria
-      payId: payment.id,  // link to specific payment
+      txId: txId,          // link to movimenti (importo)
+      txCommId: txCommId,  // link to movimenti (commissione)
+      debtId: d.id,         // link to voce debitoria
+      payId: payment.id,   // link to specific payment
     };
     propPayments.push(propPay);
     // Link tx back to propPayment
     tx.propPayId = propPay.id;
+    if(txCommId){ const tc = txs.find(t=>t.id===txCommId); if(tc) tc.propPayId = propPay.id; }
   }
   save();
   closeModal('modal-debt-pay');
@@ -2921,11 +2949,9 @@ function renderProprietari(){
   if(!el) return;
 
   // Extract pagante from notes field
-  // Notes format: "Pagante — desc" or "desc — Pagante"
   function extractPagante(notes){
     if(!notes) return null;
     const parts = notes.split(' — ');
-    // Check each part if it's a known owner
     for(const part of parts){
       const trimmed = part.trim();
       if(isProprietario(trimmed)) return trimmed;
@@ -2933,21 +2959,23 @@ function renderProprietari(){
     return null;
   }
 
-  // Build unified list from txs where pagante is a proprietario
-  const ownerCats = ['riscaldamento_prop','condominio_prop','manutenzione','commissioni'];
+  // Build unified list — exclude standalone 'commissioni' txs (they're merged into their parent payment)
+  const ownerCats = ['riscaldamento_prop','condominio_prop','manutenzione'];
   const txOwnerUscite = txs.filter(t=>{
     if(t.type!=='uscita') return false;
     if(!ownerCats.includes(t.cat)) return false;
-    // Check t.pagante first, then extract from notes
     const pag = t.pagante || extractPagante(t.notes);
     return pag && isProprietario(pag);
   });
 
-  // Merge: propPayments + txOwnerUscite (avoid duplicates)
+  // Merge: propPayments (amount+commission combined) + standalone txOwnerUscite not linked to a propPayment
   const propPayIds = new Set(propPayments.map(p=>p.txId).filter(Boolean));
   const allPayments = [
     ...propPayments.map(p=>({
-      id: p.id, date: p.date, amount: +p.amount,
+      id: p.id, date: p.date,
+      amount: +p.amount,
+      commission: +(p.commission||0),
+      total: +(p.total || (+p.amount + +(p.commission||0))),
       nome: p.prop||p.name||'—',
       desc: p.desc||'Versamento proprietario',
       method: p.method||'', notes: p.notes||'',
@@ -2956,14 +2984,15 @@ function renderProprietari(){
     ...txOwnerUscite.filter(t=>!propPayIds.has(t.id)).map(t=>{
       const pagante = t.pagante || extractPagante(t.notes) || '—';
       return {
-        id: t.id, date: t.date, amount: +t.amount,
+        id: t.id, date: t.date,
+        amount: +t.amount, commission: 0, total: +t.amount,
         nome: pagante,
         desc: t.desc || 'Uscita proprietario',
         method: t.method||'', notes: t.notes||'',
         cat: t.cat, source:'tx'
       };
     })
-  ].filter(p=>p.nome && p.nome !== '—' && p.amount > 0)
+  ].filter(p=>p.nome && p.nome !== '—' && p.total > 0)
    .sort((a,b)=>b.date.localeCompare(a.date));
 
   if(!allPayments.length){
@@ -2971,20 +3000,20 @@ function renderProprietari(){
     return;
   }
 
-  // Group by nome proprietario
   const byProp = {};
   allPayments.forEach(p=>{
     byProp[p.nome] = byProp[p.nome] || [];
     byProp[p.nome].push(p);
   });
 
-  const totalVersato = allPayments.reduce((s,p)=>s+p.amount,0);
+  const totalVersato = allPayments.reduce((s,p)=>s+p.total,0);
+  const totalCommissioni = allPayments.reduce((s,p)=>s+p.commission,0);
   const avatarColors = ['#2d6a4f','#1a4a8a','#b35c00','#6b3fa0','#c0392b','#1a7a7a'];
-  const catLabels = {riscaldamento_prop:'Riscaldamento',condominio_prop:'Condominio',manutenzione:'Manutenzione',commissioni:'Commissioni',altro:'Altro'};
+  const catLabels = {riscaldamento_prop:'Riscaldamento',condominio_prop:'Condominio',manutenzione:'Manutenzione',altro:'Altro'};
 
   let html = `<div class="stats-grid" style="margin-bottom:20px;">
-    <div class="stat-card"><div class="stat-label">Totale versato proprietari</div><div class="stat-value red">${fmt(totalVersato)}</div><div class="stat-delta">${allPayments.length} pagamenti</div></div>
-    ${Object.entries(byProp).map(([nome,pays])=>`<div class="stat-card"><div class="stat-label">${nome}</div><div class="stat-value blue">${fmt(pays.reduce((s,p)=>s+p.amount,0))}</div><div class="stat-delta">${pays.length} pagamenti</div></div>`).join('')}
+    <div class="stat-card"><div class="stat-label">Totale versato proprietari</div><div class="stat-value red">${fmt(totalVersato)}</div><div class="stat-delta">${allPayments.length} pagamenti${totalCommissioni>0?' · di cui '+fmt(totalCommissioni)+' commissioni':''}</div></div>
+    ${Object.entries(byProp).map(([nome,pays])=>`<div class="stat-card"><div class="stat-label">${nome}</div><div class="stat-value blue">${fmt(pays.reduce((s,p)=>s+p.total,0))}</div><div class="stat-delta">${pays.length} pagamenti</div></div>`).join('')}
   </div>`;
 
   html += `<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
@@ -2992,7 +3021,7 @@ function renderProprietari(){
   </div>`;
 
   Object.entries(byProp).forEach(([nome, payments], gi)=>{
-    const tot = payments.reduce((s,p)=>s+p.amount,0);
+    const tot = payments.reduce((s,p)=>s+p.total,0);
     const color = avatarColors[gi%avatarColors.length];
     const initials = nome.split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
     html += `<div class="card" style="margin-bottom:12px;">
@@ -3001,13 +3030,16 @@ function renderProprietari(){
         <div style="flex:1"><div style="font-size:15px;font-weight:500">${nome}</div><div style="font-size:12px;color:var(--text-3)">${payments.length} versamenti · ${fmt(tot)} totale</div></div>
       </div>
       ${payments.map(p=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap;">
           <span style="color:var(--text-3);width:86px;flex-shrink:0">${fmtDate(p.date)}</span>
-          <span style="flex:1;color:var(--text-2)">${p.desc}</span>
+          <span style="flex:1;color:var(--text-2);min-width:120px;">${p.desc}</span>
           <span style="font-size:11px;color:var(--text-3);padding:2px 7px;border-radius:10px;background:var(--surface2);">${catLabels[p.cat]||p.cat}</span>
           <span style="font-size:11px;color:var(--text-3)">${p.method||''}</span>
-          <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--red)">${fmt(p.amount)}</span>
-          ${p.source==='prop'?`<button class="btn btn-icon" onclick="deletePropPayment('${p.id}')" style="padding:3px 6px;font-size:11px;color:var(--red);border-color:var(--red-light);">✕</button>`:''}
+          <span style="display:flex;flex-direction:column;align-items:flex-end;">
+            <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--red)">${fmt(p.total)}</span>
+            ${p.commission>0?`<span style="font-size:10px;color:var(--text-3)">spesa ${fmt(p.amount)} + comm. ${fmt(p.commission)}</span>`:''}
+          </span>
+          ${p.source==='prop'?`<button class="btn btn-icon" onclick="deletePropPayment('${p.id}')" style="padding:3px 6px;font-size:11px;color:var(--red);border-color:var(--red-light);">✕</button>`:`<button class="btn btn-icon" onclick="deleteTx('${p.id}')" style="padding:3px 6px;font-size:11px;color:var(--red);border-color:var(--red-light);">✕</button>`}
         </div>`).join('')}
     </div>`;
   });
@@ -3203,8 +3235,8 @@ const ESTRATTO_VOCI = [
     desc: 'Riscaldamento 2025-2026',
     cat: 'riscaldamento',
     year: '2026',
-    total: 1505.00,
-    notes: '5 rate da 301 euro scad. dic-apr — residuo 1505,00',
+    total: 1806.00,
+    notes: '6 rate da 301 euro scad. dic-mag — residuo 1806,00 (tutte da pagare)',
     saldato: false,
     payments: []
   },
@@ -3213,11 +3245,13 @@ const ESTRATTO_VOCI = [
     desc: 'Conguaglio Riscaldamento 2024-2025',
     cat: 'riscaldamento',
     year: '2025',
-    total: 3261.11,
-    notes: 'Residuo 2230,61',
+    total: 2854.43,
+    notes: 'Totale aggiornato al 30/06/2026 — versato 2361,00 — residuo 493,43',
     saldato: false,
     payments: [
       {id:'imp_cr1', amount:1030.50, date:'2025-12-09', method:'bollettino', notes:'Conguaglio risc. 24/25', pagante:'Capano Aurora', commission:2.50},
+      {id:'imp_cr3', amount:1030.50, date:'2026-01-13', method:'bollettino', notes:'Conguaglio risc. 24/25', pagante:'Capano Aurora', commission:2.50},
+      // NOTE: Audino Giovanni €300 del 04/05/2026 già registrato manualmente — NON duplicare
     ]
   },
   {
@@ -3225,8 +3259,18 @@ const ESTRATTO_VOCI = [
     desc: 'Condominio Ordinario 2026',
     cat: 'condominio_ord',
     year: '2026',
-    total: 320.00,
-    notes: '4 rate da 80 euro gen-apr — residuo 320,00 (tutte da pagare)',
+    total: 480.00,
+    notes: '6 rate da 80 euro gen-giu — residuo 480,00 (tutte da pagare)',
+    saldato: false,
+    payments: []
+  },
+  {
+    id: 'imp_cong_condo25',
+    desc: 'Conguaglio Condominio 2025',
+    cat: 'condominio_ord',
+    year: '2026',
+    total: 3500.30,
+    notes: 'Conguaglio consuntivo 2025 — scad. 15/06/2026 — residuo 3500,30',
     saldato: false,
     payments: []
   },
