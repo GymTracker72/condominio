@@ -833,7 +833,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-proprietari_anag" class="view">
       <div class="page-header">
         <div><div class="page-title">Proprietari</div><div class="page-subtitle">Titolari dell'immobile</div></div>
-        <button class="btn btn-primary" onclick="openAnagraficaModal('proprietario')">+ Aggiungi proprietario</button>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'proprietario')">+ Aggiungi proprietario</button>
       </div>
       <div id="proprietari-anag-content"></div>
     </div>
@@ -842,7 +842,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-inquilini_anag" class="view">
       <div class="page-header">
         <div><div class="page-title">Inquilini</div><div class="page-subtitle">Inquilini attivi e storici</div></div>
-        <button class="btn btn-primary" onclick="openAnagraficaModal('inquilino')">+ Aggiungi inquilino</button>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'inquilino')">+ Aggiungi inquilino</button>
       </div>
       <div id="inquilini-anag-content"></div>
     </div>
@@ -851,7 +851,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-fornitori_anag" class="view">
       <div class="page-header">
         <div><div class="page-title">Fornitori & Tecnici</div><div class="page-subtitle">Ditte, artigiani, professionisti</div></div>
-        <button class="btn btn-primary" onclick="openAnagraficaModal('fornitore')">+ Aggiungi fornitore</button>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'fornitore')">+ Aggiungi fornitore</button>
       </div>
       <div id="fornitori-anag-content"></div>
     </div>
@@ -1041,9 +1041,14 @@ textarea{resize:vertical;min-height:70px;}
       <div class="form-group full"><label>Nome e cognome</label><input type="text" id="an-nome" placeholder="Es. Papini Furio"></div>
       <div class="form-group full"><label>Ruolo</label>
         <select id="an-ruolo" onchange="onAnRuoloChange(this.value)">
+          <option value="proprietario">🔑 Proprietario</option>
           <option value="inquilino">🏠 Inquilino attivo</option>
           <option value="ex_inquilino">📁 Ex inquilino</option>
-          <option value="proprietario">🔑 Proprietario</option>
+          <option value="condominio">🏢 Condominio</option>
+          <option value="amministratore">👔 Amministratore</option>
+          <option value="fornitore">🔧 Fornitore</option>
+          <option value="tecnico">📐 Tecnico</option>
+          <option value="altro">👤 Altro</option>
         </select>
       </div>
       <div class="form-group"><label>Dal</label><input type="date" id="an-dal"></div>
@@ -1055,6 +1060,8 @@ textarea{resize:vertical;min-height:70px;}
       </div>
       <div class="form-group"><label>Telefono</label><input type="text" id="an-tel" placeholder="Es. 333 1234567"></div>
       <div class="form-group"><label>Email</label><input type="text" id="an-email" placeholder="Es. nome@email.it"></div>
+      <div class="form-group"><label>Codice Fiscale</label><input type="text" id="an-cf" placeholder="RSSMRA80A01H501Z" style="font-family:'DM Mono',monospace;"></div>
+      <div class="form-group full"><label>Indirizzo</label><input type="text" id="an-indirizzo" placeholder="Via, numero civico, città"></div>
       <div class="form-group full"><label>Note</label><textarea id="an-note" placeholder="Note aggiuntive..."></textarea></div>
     </div>
     <input type="hidden" id="an-id">
@@ -2002,9 +2009,38 @@ function renderOneriNewFilePreviews(){
 
 function removeOnereFileFromModal(fileIdx){
   if(!window._oneriEditCurrentFiles) return;
-  window._oneriEditCurrentFiles.files.splice(fileIdx,1);
-  // Re-render the existing files section
-  openOneriEdit(window._oneriEditCurrentFiles.itemId, window._oneriEditCurrentFiles.source);
+  if(!confirm('Eliminare questo allegato?')) return;
+  window._oneriEditCurrentFiles.files.splice(fileIdx, 1);
+  // Re-render just the existing files section without reopening modal
+  const filesPreview = document.getElementById('oe-existing-files');
+  if(!filesPreview) return;
+  const currentFiles = window._oneriEditCurrentFiles.files;
+  if(!currentFiles.length){
+    filesPreview.style.display = 'none';
+    filesPreview.innerHTML = '';
+    return;
+  }
+  filesPreview.style.display = 'block';
+  filesPreview.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Allegati esistenti</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+    currentFiles.map((f,fi)=>{
+      if(f.driveFileId){
+        return `<div style="position:relative;">
+          <div style="width:48px;height:48px;border-radius:8px;background:var(--green-bg);border:1px solid var(--green-light);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" onclick="window.open('${f.url||'https://drive.google.com/file/d/'+f.driveFileId+'/view'}','_blank')">☁<span style="font-size:9px;color:var(--green);">${(f.name||'').slice(-6)}</span></div>
+          <button onclick="removeOnereFileFromModal(${fi})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;">✕</button>
+        </div>`;
+      }
+      if(f.data){
+        const isImg = f.type&&f.type.startsWith('image/');
+        return `<div style="position:relative;">
+          ${isImg
+            ? `<img style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer;" src="${f.data}">`
+            : `<div style="width:48px;height:48px;border-radius:8px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;">📄</div>`}
+          <button onclick="removeOnereFileFromModal(${fi})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;">✕</button>
+        </div>`;
+      }
+      return '';
+    }).join('') + '</div>';
 }
 
 function openOnereFile(itemId, source, fileIdx){
@@ -3885,19 +3921,21 @@ function isProprietario(nome){
   return proprietari.some(p=>p.toLowerCase()===n);
 }
 
-function openAnagraficaModal(editId){
+function openAnagraficaModal(editId, presetRuolo){
   const p = editId ? anagrafica.find(x=>x.id===editId) : null;
   document.getElementById('modal-anag-title').textContent = editId ? 'Modifica persona' : 'Aggiungi persona';
   document.getElementById('an-nome').value = p ? p.nome : '';
-  document.getElementById('an-ruolo').value = p ? p.ruolo : 'inquilino';
+  document.getElementById('an-ruolo').value = p ? p.ruolo : (presetRuolo||'inquilino');
   document.getElementById('an-dal').value = p ? (p.dal||'') : '';
   document.getElementById('an-al').value = p ? (p.al||'') : '';
   document.getElementById('an-tel').value = p ? (p.tel||'') : '';
   document.getElementById('an-email').value = p ? (p.email||'') : '';
+  document.getElementById('an-cf') ? document.getElementById('an-cf').value = p ? (p.cf||'') : '' : null;
+  document.getElementById('an-indirizzo') ? document.getElementById('an-indirizzo').value = p ? (p.indirizzo||'') : '' : null;
   document.getElementById('an-note').value = p ? (p.note||'') : '';
   document.getElementById('an-pregresso').value = p ? (p.pregresso||'') : '';
   document.getElementById('an-id').value = editId||'';
-  onAnRuoloChange(p ? p.ruolo : 'inquilino');
+  onAnRuoloChange(p ? p.ruolo : (presetRuolo||'inquilino'));
   document.getElementById('modal-anagrafica').classList.add('open');
   setTimeout(()=>document.getElementById('an-nome').focus(),100);
 }
@@ -3919,6 +3957,8 @@ function saveAnagrafica(){
     al: document.getElementById('an-al').value,
     tel: document.getElementById('an-tel').value.trim(),
     email: document.getElementById('an-email').value.trim(),
+    cf: document.getElementById('an-cf')?.value.trim()||'',
+    indirizzo: document.getElementById('an-indirizzo')?.value.trim()||'',
     note: document.getElementById('an-note').value.trim(),
     pregresso: ruolo==='ex_inquilino' ? (parseFloat(document.getElementById('an-pregresso').value)||0) : 0,
   };
