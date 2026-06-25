@@ -3754,8 +3754,14 @@ function saveAnagrafica(){
   syncInquiliniToCondo();
   save();
   closeModal('modal-anagrafica');
-  showToast(editId ? 'Persona aggiornata' : 'Persona aggiunta');
-  renderAnagrafica();
+  showToast(editId ? 'Persona aggiornata ✓' : 'Persona aggiunta ✓');
+  // Re-render whichever anagrafica view is currently active
+  const av = document.querySelector('.view.active');
+  const activeView = av ? av.id.replace('view-','') : '';
+  if(activeView==='proprietari_anag')   renderAnagraficaFiltro('proprietario','proprietari-anag-content');
+  else if(activeView==='inquilini_anag') renderAnagraficaFiltro('inquilino','inquilini-anag-content');
+  else if(activeView==='fornitori_anag') renderAnagraficaFiltro('fornitore','fornitori-anag-content');
+  else renderAnagrafica();
 }
 
 function deleteAnagrafica(id){
@@ -4586,7 +4592,7 @@ function renderAnagraficaFiltro(ruolo, containerId){
         ${a.note?`<div style="font-size:11px;color:var(--text-3);margin-bottom:8px;">${a.note}</div>`:''}
         ${a.pregresso>0?`<div style="font-size:11px;background:var(--amber-bg);color:var(--amber);padding:5px 8px;border-radius:6px;margin-bottom:8px;">⚠ Pregresso: ${fmt(a.pregresso)}</div>`:''}
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-ghost btn-xs" onclick="openAnagraficaModal(null,'${a.id}')">✎ Modifica</button>
+          <button class="btn btn-ghost btn-xs" onclick="openAnagraficaModal('${a.id}')">✎ Modifica</button>
           <button class="btn btn-xs" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="deleteAnagrafica('${a.id}')">✕ Rimuovi</button>
         </div>
       </div>`;
