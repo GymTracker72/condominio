@@ -3758,7 +3758,7 @@ function renderDebiti(){
                   ${filesHtml?`<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">${filesHtml}</div>`:''}
                 </div>
                 <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green);flex-shrink:0;">${fmt(p.amount)}</span>
-                <button class="btn-icon" onclick="openEditDebtPayModal('${d.id}','${p.id}')" title="Modifica">✎</button>
+                <button class="btn-icon" onclick="editPaymentPagante('${d.id}','${p.id}')" title="Modifica">✎</button>
                 <button class="btn-icon" style="color:var(--red);border-color:var(--red-light);" onclick="deleteDebtPayment('${d.id}','${p.id}')" title="Elimina">✕</button>
               </div>`;
           });
