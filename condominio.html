@@ -4626,9 +4626,9 @@ function renderScheda(){
         <div style="font-size:13px;opacity:.7;margin-bottom:12px;">${condo.address||''}</div>
         <div style="display:flex;gap:20px;flex-wrap:wrap;">
           <div><div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.06em;">Proprietari</div>
-            <div style="font-size:13px;margin-top:2px;">${propAttivi.length>0?propAttivi.map(p=>p.nome+' '+p.cognome).join(', '):'—'}</div></div>
+            <div style="font-size:13px;margin-top:2px;">${propAttivi.length>0?propAttivi.map(p=>(p.nome+(p.cognome?' '+p.cognome:'')).trim()).join(', '):'—'}</div></div>
           <div><div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.06em;">Inquilini attivi</div>
-            <div style="font-size:13px;margin-top:2px;">${inquAttivi.length>0?inquAttivi.map(p=>p.nome+' '+p.cognome).join(', '):'—'}</div></div>
+            <div style="font-size:13px;margin-top:2px;">${inquAttivi.length>0?inquAttivi.map(p=>(p.nome+(p.cognome?' '+p.cognome:'')).trim()).join(', '):'—'}</div></div>
         </div>
       </div>
       <div style="font-size:11px;opacity:.5;">Aggiornato al ${new Date().toLocaleDateString('it-IT')}</div>
