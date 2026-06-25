@@ -1128,6 +1128,17 @@ textarea{resize:vertical;min-height:70px;}
     </div>
     <input type="hidden" id="oe-id">
     <input type="hidden" id="oe-source"> <!-- 'debt' or 'manual' -->
+    <!-- existing files with delete -->
+    <div id="oe-existing-files" style="display:none;margin-top:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);"></div>
+    <!-- new file upload -->
+    <div style="margin-top:14px;">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;">Aggiungi allegato (ricevuta, bonifico, PDF)</label>
+      <div class="file-zone" onclick="document.getElementById('oe-files-input').click()">
+        <input type="file" id="oe-files-input" accept="image/*,.pdf" multiple style="display:none" onchange="onOneriEditFilesSelect(this)">
+        <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
+      </div>
+      <div id="oe-new-files-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-oneri-edit')">Annulla</button>
       <button class="btn btn-primary" onclick="saveOneriEdit()">Salva</button>
@@ -1944,161 +1955,256 @@ function renderBilancio(){
 }
 
 // ══ ONERI CONDOMINI ══
+// ── ONERI FILE HANDLING ──
+let oneriEditFiles = [];
+
+function onOneriEditFilesSelect(input){
+  Array.from(input.files).forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const data = e.target.result;
+      if(file.type==='application/pdf'){
+        uploadFileToDrive(file, null, url=>{
+          oneriEditFiles.push({name:file.name, type:file.type, url, driveFileId:'pending'});
+          renderOneriNewFilePreviews();
+        }, null);
+      } else {
+        compressImage(file, 1200, 0.75, compressed=>{
+          oneriEditFiles.push({name:file.name, type:file.type, data:compressed});
+          renderOneriNewFilePreviews();
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function renderOneriNewFilePreviews(){
+  const el = document.getElementById('oe-new-files-preview');
+  if(!el) return;
+  el.innerHTML = oneriEditFiles.map((f,i)=>{
+    const thumb = f.data && f.type?.startsWith('image/')
+      ? `<img style="width:48px;height:48px;border-radius:8px;object-fit:cover;" src="${f.data}">`
+      : `<div style="width:48px;height:48px;border-radius:8px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:20px;">📄</div>`;
+    return `<div style="position:relative;">${thumb}
+      <button onclick="oneriEditFiles.splice(${i},1);renderOneriNewFilePreviews()" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeOnereFileFromModal(fileIdx){
+  if(!window._oneriEditCurrentFiles) return;
+  window._oneriEditCurrentFiles.files.splice(fileIdx,1);
+  // Re-render the existing files section
+  openOneriEdit(window._oneriEditCurrentFiles.itemId, window._oneriEditCurrentFiles.source);
+}
+
+function openOnereFile(itemId, source, fileIdx){
+  let files = [];
+  if(source==='manual'){
+    const m = oneriManual.find(x=>x.id===itemId);
+    files = m?.files||[];
+  } else {
+    const parts = itemId.split('_');
+    const dbt = debiti.find(x=>x.id===parts[0]);
+    const pay = dbt?.payments.find(x=>x.id===parts.slice(1).join('_'));
+    files = pay?.files||[];
+  }
+  const f = files[fileIdx];
+  if(!f) return;
+  if(f.driveFileId){ window.open(f.url||'https://drive.google.com/file/d/'+f.driveFileId+'/view','_blank'); return; }
+  if(f.data){
+    try{
+      const arr=f.data.split(','), mime=(arr[0].match(/:(.*?);/)||['','image/jpeg'])[1];
+      const bstr=atob(arr[1]), u8=new Uint8Array(bstr.length);
+      for(let i=0;i<bstr.length;i++) u8[i]=bstr.charCodeAt(i);
+      const url=URL.createObjectURL(new Blob([u8],{type:mime}));
+      window.open(url,'_blank');
+      setTimeout(()=>URL.revokeObjectURL(url),15000);
+    } catch(e){ window.open(f.data,'_blank'); }
+  }
+}
+
+function removeOnereFile(itemId, source, fileIdx){
+  if(!confirm('Eliminare questo allegato?')) return;
+  if(source==='manual'){
+    const m = oneriManual.find(x=>x.id===itemId);
+    if(m && m.files){ m.files.splice(fileIdx,1); save(); renderOneri(); }
+  } else {
+    const parts = itemId.split('_');
+    const dbt = debiti.find(x=>x.id===parts[0]);
+    const pay = dbt?.payments.find(x=>x.id===parts.slice(1).join('_'));
+    if(pay && pay.files){ pay.files.splice(fileIdx,1); save(); renderOneri(); }
+  }
+}
+
 function renderOneri(){
   const el = document.getElementById('oneri-content');
   const condo = currentCondo();
   const inquilini = condo?.inquilini || [];
 
-  // ── Helper: is this payer a tenant? ──
-  function isTenant(nome, dataRif){ 
+  function isTenant(nome, dataRif){
     if(!nome) return false;
-    // Use anagrafica if available
-    if(anagrafica.length){
-      return isInquilino(nome, dataRif);
-    }
-    // Fallback to condo.inquilini
-    return inquilini.some(inq => inq.toLowerCase() === nome.toLowerCase());
+    if(anagrafica.length) return isInquilino(nome, dataRif);
+    return inquilini.some(inq=>inq.toLowerCase()===nome.toLowerCase());
   }
-
   function isPropOwner(nome){
     if(!nome) return false;
     if(anagrafica.length) return isProprietario(nome);
     return ['audino giovanni','audino giuliano'].includes(nome.toLowerCase());
   }
 
-  // ── Build auto-items from debiti ──
-  // Categories that are "oneri condomini" (shared charges)
+  // Build items from debiti payments
   const ONERI_DEBT_CATS = ['riscaldamento','condominio_ord'];
   const autoItems = [];
-
   debiti.filter(d=>ONERI_DEBT_CATS.includes(d.cat)).forEach(d=>{
     d.payments.forEach(p=>{
-      const key = d.id + '_' + p.id;
-      const override = oneriOverrides[key] || {};
-      // Determine auto-stato based on who paid
-      let autoStato;
-      if(isTenant(p.pagante, p.date)){
-        autoStato = 'riscosso';
-      } else if(isPropOwner(p.pagante)){
-        autoStato = 'a_carico_proprietari';
-      } else {
-        autoStato = 'da_riscuotere';
-      }
-      const stato = override.stato || autoStato;
-      const inquilino = override.inquilino || p.pagante || '';
-      const notes = override.notes || p.notes || '';
+      const key = d.id+'_'+p.id;
+      const override = oneriOverrides[key]||{};
+      let autoStato = isTenant(p.pagante,p.date)?'riscosso':isPropOwner(p.pagante)?'a_carico_proprietari':'da_riscuotere';
       autoItems.push({
-        id: key,
-        source: 'debt',
-        debtId: d.id,
-        payId: p.id,
+        id: key, source:'debt', debtId:d.id, payId:p.id,
         desc: d.desc,
-        cat: d.cat === 'condominio_ord' ? 'condominio' : 'riscaldamento_cond',
-        catLabel: d.cat === 'condominio_ord' ? 'Quote condominiali' : 'Riscaldamento',
-        catIcon: d.cat === 'condominio_ord' ? '🏛' : '🔥',
-        amount: p.amount,
-        date: p.date,
-        year: d.year,
-        stato, inquilino, notes,
-        isAutoRiscosso: autoStato === 'riscosso',
+        cat: d.cat==='condominio_ord'?'condominio_ord':'riscaldamento',
+        catLabel: d.cat==='condominio_ord'?'Quote condominiali':'Riscaldamento',
+        catIcon: d.cat==='condominio_ord'?'🏛':'🔥',
+        amount: p.amount, date: p.date,
+        year: d.year || p.date?.slice(0,4) || '—',
+        stato: override.stato||autoStato,
+        inquilino: override.inquilino||p.pagante||'',
+        notes: override.notes||p.notes||'',
         isOverridden: !!override.stato,
-        files: p.files || [],
+        files: p.files||[],
       });
     });
   });
 
-  // ── Manual items ──
   const manualItems = oneriManual.map(m=>({
-    id: m.id,
-    source: 'manual',
-    desc: m.desc,
-    cat: m.cat,
-    catLabel: {tari_cond:'TARI',acqua_cond:'Acqua conguaglio',riscaldamento_cond:'Riscaldamento',condominio:'Quote condominiali',altro:'Altro'}[m.cat]||m.cat,
-    catIcon: {tari_cond:'🗑',acqua_cond:'💧',riscaldamento_cond:'🔥',condominio:'🏛',altro:'📋'}[m.cat]||'📋',
-    amount: m.amount,
-    date: '',
-    year: m.year,
-    stato: m.stato||'da_riscuotere',
-    inquilino: m.inquilino||'',
-    notes: m.notes||'',
-    isAutoRiscosso: false,
-    isOverridden: false,
-    files: [],
+    id:m.id, source:'manual',
+    desc:m.desc||m.cat,
+    cat:m.cat,
+    catLabel:{tari_cond:'TARI',acqua_cond:'Acqua',riscaldamento_cond:'Riscaldamento',riscaldamento:'Riscaldamento',condominio:'Quote condominiali',condominio_ord:'Quote condominiali',altro:'Altro'}[m.cat]||m.cat,
+    catIcon:{tari_cond:'🗑',acqua_cond:'💧',riscaldamento_cond:'🔥',riscaldamento:'🔥',condominio:'🏛',condominio_ord:'🏛',altro:'📋'}[m.cat]||'📋',
+    amount:m.importo||m.amount, date:'',
+    year:m.year||m.anno||currentYear,
+    stato:m.stato||'da_riscuotere',
+    inquilino:m.inquilino||'', notes:m.notes||'',
+    isOverridden:false, files:m.files||[],
   }));
 
-  const allItems = [...autoItems, ...manualItems];
+  const allItems = [...autoItems,...manualItems];
 
   if(!allItems.length){
-    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div>
-      <h3>Nessun onere</h3>
-      <p>Gli oneri si popolano automaticamente dai Debiti condominio<br>quando ci sono voci di tipo "Condominio ordinario" o "Riscaldamento".</p>
-      ${!inquilini.length?'<p style="margin-top:8px;color:var(--amber)">⚠ Configura prima gli inquilini cliccando "⚙ Gestisci inquilini"</p>':''}</div>`;
+    el.innerHTML=`<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Nessun onere</h3>
+      <p>Gli oneri si popolano automaticamente dai Debiti condominio quando ci sono voci di tipo "Condominio ordinario" o "Riscaldamento".</p></div>`;
     return;
   }
 
   // Stats
-  const totDaRiscuotere = allItems.filter(x=>x.stato==='da_riscuotere').reduce((s,x)=>s+(+x.amount),0);
-  const totRiscosso = allItems.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
-  const totParziale = allItems.filter(x=>x.stato==='parziale').reduce((s,x)=>s+(+x.amount),0);
-  const totProp = allItems.filter(x=>x.stato==='a_carico_proprietari').reduce((s,x)=>s+(+x.amount),0);
+  const totDaRisc = allItems.filter(x=>x.stato==='da_riscuotere').reduce((s,x)=>s+(+x.amount),0);
+  const totRisc   = allItems.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
+  const totProp   = allItems.filter(x=>x.stato==='a_carico_proprietari').reduce((s,x)=>s+(+x.amount),0);
 
-  // Group by category
-  const byCat = {};
+  // ── GROUP BY YEAR → CATEGORY ──
+  const byYear = {};
   allItems.forEach(item=>{
-    if(!byCat[item.catLabel]) byCat[item.catLabel] = {icon:item.catIcon, items:[]};
-    byCat[item.catLabel].items.push(item);
+    const y = item.year||'—';
+    if(!byYear[y]) byYear[y]={};
+    const cl = item.catLabel;
+    if(!byYear[y][cl]) byYear[y][cl]={icon:item.catIcon, items:[]};
+    byYear[y][cl].items.push(item);
   });
 
+  const statoInfo = {
+    riscosso:            {label:'✓ Riscosso',         color:'var(--green)', bg:'var(--green-bg)'},
+    parziale:            {label:'◑ Parziale',          color:'var(--amber)', bg:'var(--amber-bg)'},
+    a_carico_proprietari:{label:'🏠 Proprietari',      color:'var(--blue)',  bg:'var(--blue-bg)'},
+    da_riscuotere:       {label:'⏳ Da riscuotere',    color:'var(--red)',   bg:'var(--red-bg)'},
+    stornato:            {label:'✖ Stornato',          color:'var(--text-3)',bg:'var(--surface2)'},
+  };
+
   let html = `<div class="stats-grid" style="margin-bottom:20px;">
-    <div class="stat-card"><div class="stat-label">Da riscuotere</div><div class="stat-value red">${fmt(totDaRiscuotere)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='da_riscuotere').length} voci</div></div>
-    <div class="stat-card"><div class="stat-label">Riscosso</div><div class="stat-value green">${fmt(totRiscosso)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='riscosso').length} voci</div></div>
-    ${totProp>0?`<div class="stat-card"><div class="stat-label">A carico proprietari</div><div class="stat-value blue">${fmt(totProp)}</div><div class="stat-delta">Pregresso coperto</div></div>`:''}
-    ${totParziale>0?`<div class="stat-card"><div class="stat-label">Parziale</div><div class="stat-value amber">${fmt(totParziale)}</div></div>`:''}
+    <div class="stat-card"><div class="stat-label">Da riscuotere</div><div class="stat-value red">${fmt(totDaRisc)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='da_riscuotere').length} voci</div></div>
+    <div class="stat-card"><div class="stat-label">Riscosso</div><div class="stat-value green">${fmt(totRisc)}</div><div class="stat-delta">${allItems.filter(x=>x.stato==='riscosso').length} voci</div></div>
+    ${totProp>0?`<div class="stat-card"><div class="stat-label">A carico proprietari</div><div class="stat-value blue">${fmt(totProp)}</div></div>`:''}
   </div>`;
 
-  if(!inquilini.length){
-    html += `<div style="padding:12px 16px;background:var(--amber-bg);border:1px solid rgba(179,92,0,.2);border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;color:var(--amber);">
-      ⚠ Nessun inquilino configurato — clicca "⚙ Gestisci inquilini" per definire chi sono gli inquilini e il sistema determinerà automaticamente lo stato "Riscosso".
-    </div>`;
-  }
+  // Sort years descending
+  Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).forEach(year=>{
+    const yearItems = Object.values(byYear[year]).flatMap(x=>x.items);
+    const yearTot = yearItems.reduce((s,x)=>s+(+x.amount),0);
+    const yearRisc = yearItems.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
+    const pct = yearTot>0?Math.round(yearRisc/yearTot*100):0;
 
-  Object.entries(byCat).forEach(([catLabel, {icon, items}])=>{
-    const catTot = items.reduce((s,x)=>s+(+x.amount),0);
-    const catRisc = items.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
-    html += `<div class="cond-section">
-      <div class="cond-header" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>${icon} ${catLabel}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;">${fmt(catRisc)} / ${fmt(catTot)}</span>
-      </div>
-      ${items.sort((a,b)=>a.date.localeCompare(b.date)).map(item=>{
-        const statoColor = item.stato==='riscosso'?'var(--green)':item.stato==='parziale'?'var(--amber)':item.stato==='a_carico_proprietari'?'var(--blue)':'var(--red)';
-        const statoLabel = item.stato==='riscosso'?'✓ Riscosso':item.stato==='parziale'?'◑ Parziale':item.stato==='a_carico_proprietari'?'🏠 Prop.':' ⏳ Da riscuotere';
-        const autoTag = item.source==='debt' && !item.isOverridden ? 
-          `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--blue-bg);color:var(--blue);margin-left:4px;">auto</span>` : '';
-        const manualTag = item.source==='manual' ?
-          `<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--amber-bg);color:var(--amber);margin-left:4px;">manuale</span>` : '';
-        return `<div class="cond-row" style="flex-wrap:wrap;gap:6px;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:500;font-size:13px;display:flex;align-items:center;gap:4px;">
-              ${item.desc}${autoTag}${manualTag}
-            </div>
-            <div style="font-size:11px;color:var(--text-3);">
-              ${item.date?fmtDate(item.date):'—'} 
-              ${item.inquilino?'· '+item.inquilino:''} 
-              ${item.notes?'· '+item.notes:''}
-            </div>
-            ${item.files&&item.files.length?`<div style="display:flex;gap:3px;margin-top:4px;">${item.files.map(f=>{const k=cacheAndView(f.data);return f.type&&f.type.startsWith('image/')?`<img style="width:28px;height:28px;border-radius:3px;object-fit:cover;cursor:pointer;" src="${f.data}" onclick="viewFile('${k}')">`:`<div style="width:28px;height:28px;border-radius:3px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;" onclick="viewFile('${k}')">📄</div>`;}).join('')}</div>`:''}
+    html += `<div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+        <div style="font-size:17px;font-weight:600;color:var(--text-1);">📅 ${year}</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:12px;color:var(--text-3);">${fmt(yearRisc)} / ${fmt(yearTot)} riscosso</div>
+          <div style="width:80px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px;"></div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;">${fmt(item.amount)}</span>
-            <button style="font-size:11px;padding:3px 9px;border-radius:10px;border:1px solid ${statoColor};background:${item.stato==='riscosso'?'var(--green-bg)':item.stato==='parziale'?'var(--amber-bg)':'var(--red-bg)'};color:${statoColor};cursor:pointer;font-family:inherit;font-weight:600;" 
-              onclick="openOneriEdit('${item.id}','${item.source}')">${statoLabel}</button>
-            <button class="tx-btn" onclick="openOneriEdit('${item.id}','${item.source}')">✎</button>
-            ${item.source==='manual'?`<button class="tx-btn del" onclick="deleteOneriManual('${item.id}')">✕</button>`:''}
+          <div style="font-size:12px;font-weight:600;color:${pct===100?'var(--green)':'var(--text-2)'};">${pct}%</div>
+        </div>
+      </div>`;
+
+    Object.entries(byYear[year]).forEach(([catLabel, {icon, items}])=>{
+      const catTot  = items.reduce((s,x)=>s+(+x.amount),0);
+      const catRisc = items.filter(x=>x.stato==='riscosso').reduce((s,x)=>s+(+x.amount),0);
+
+      html += `<div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:1px;cursor:pointer;"
+          onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span style="font-size:13px;font-weight:600;">${icon} ${catLabel}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:${catRisc>=catTot&&catTot>0?'var(--green)':'var(--text-2)'};">${fmt(catRisc)} / ${fmt(catTot)}</span>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:0 0 var(--radius-sm) var(--radius-sm);overflow:hidden;">
+          ${items.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(item=>{
+            const si = statoInfo[item.stato]||statoInfo['da_riscuotere'];
+            const autoTag = item.source==='debt'&&!item.isOverridden?`<span style="font-size:9px;padding:1px 5px;border-radius:8px;background:var(--blue-bg);color:var(--blue);margin-left:4px;">auto</span>`:'';
+            const filesHtml = item.files&&item.files.length?`<div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;">
+              ${item.files.map((f,fi)=>{
+                if(f.driveFileId){
+                  return `<div style="position:relative;display:inline-block;">
+                    <div style="width:32px;height:32px;border-radius:5px;background:var(--green-bg);border:1px solid var(--green-light);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;" onclick="window.open('${f.url||'https://drive.google.com/file/d/'+f.driveFileId+'/view'}','_blank')" title="${f.name||'Drive'}">☁<span style="font-size:8px;color:var(--green);">pdf</span></div>
+                    <button onclick="removeOnereFile('${item.id}','${item.source}',${fi})" style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+                  </div>`;
+                }
+                if(f.data){
+                  const isImg=f.type&&f.type.startsWith('image/');
+                  return `<div style="position:relative;display:inline-block;">
+                    ${isImg?`<img style="width:32px;height:32px;border-radius:5px;object-fit:cover;cursor:pointer;" src="${f.data}" onclick="openOnereFile('${item.id}','${item.source}',${fi})">`
+                    :`<div style="width:32px;height:32px;border-radius:5px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;" onclick="openOnereFile('${item.id}','${item.source}',${fi})">📄</div>`}
+                    <button onclick="removeOnereFile('${item.id}','${item.source}',${fi})" style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+                  </div>`;
+                }
+                return '';
+              }).join('')}
+            </div>`:'';
+            return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${item.desc}${autoTag}</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${item.date?fmtDate(item.date):''}${item.inquilino?' · '+item.inquilino:''}${item.notes?' · '+item.notes:''}</div>
+                ${filesHtml}
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:1px;">
+                <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;">${fmt(item.amount)}</span>
+                <button style="font-size:11px;padding:3px 8px;border-radius:10px;border:1px solid ${si.color};background:${si.bg};color:${si.color};cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;"
+                  onclick="openOneriEdit('${item.id}','${item.source}')">${si.label}</button>
+                <button class="tx-btn" onclick="openOneriEdit('${item.id}','${item.source}')" title="Modifica / Aggiungi allegato">✎</button>
+                ${item.source==='manual'?`<button class="tx-btn del" onclick="deleteOneriManual('${item.id}')">✕</button>`:''}
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="padding:8px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;color:var(--text-3);">${items.length} voci</span>
+            <button class="btn btn-ghost btn-xs" onclick="openOnereModal()" title="Aggiungi voce manuale">+ Aggiungi voce</button>
           </div>
-        </div>`;
-      }).join('')}
-    </div>`;
+        </div>
+      </div>`;
+    });
+    html += '</div>';
   });
 
   el.innerHTML = html;
@@ -2143,35 +2249,78 @@ function deleteOneriManual(id){
 
 // ── Oneri edit (stato + inquilino override) ──
 function openOneriEdit(itemId, source){
-  // Find item
   let item = null;
-  if(source === 'manual'){
+  let currentFiles = [];
+  if(source==='manual'){
     item = oneriManual.find(x=>x.id===itemId);
+    currentFiles = item?.files||[];
   } else {
-    // itemId is debtId_payId
     const override = oneriOverrides[itemId]||{};
-    const [debtId, payId] = itemId.split('_').reduce((acc,v,i)=>{ if(i===0) acc[0]=v; else acc[1]=(acc[1]||'')+v; return acc; },['','']);
+    const parts = itemId.split('_');
+    const debtId = parts[0];
+    const payId = parts.slice(1).join('_');
     const debt = debiti.find(x=>x.id===debtId);
     const pay = debt?.payments.find(x=>x.id===payId);
     if(!pay) return;
-    item = { stato: override.stato||(currentCondo()?.inquilini||[]).some(inq=>inq.toLowerCase()===(pay.pagante||'').toLowerCase())?'riscosso':'da_riscuotere', inquilino: override.inquilino||pay.pagante||'', notes: override.notes||pay.notes||'' };
+    currentFiles = pay.files||[];
+    item = {
+      stato: override.stato||(isInquilino(pay.pagante,pay.date)?'riscosso':isProprietario(pay.pagante)?'a_carico_proprietari':'da_riscuotere'),
+      inquilino: override.inquilino||pay.pagante||'',
+      notes: override.notes||pay.notes||''
+    };
   }
   if(!item) return;
+
   document.getElementById('oe-id').value = itemId;
   document.getElementById('oe-source').value = source;
   document.getElementById('oe-stato').value = item.stato||'da_riscuotere';
   document.getElementById('oe-inquilino').value = item.inquilino||'';
   document.getElementById('oe-notes').value = item.notes||'';
-  // Find better description for debt items
-  let oeDesc = source==='manual' ? (item.desc||'Voce manuale') : '';
+
+  let oeDesc = source==='manual'?(item.desc||'Voce manuale'):'';
   if(source==='debt'){
     const parts = itemId.split('_');
     const dbt = debiti.find(x=>x.id===parts[0]);
     const pay = dbt?.payments.find(x=>x.id===parts.slice(1).join('_'));
-    oeDesc = dbt ? dbt.desc + (pay ? ' — ' + fmtDate(pay.date) + ' ' + fmt(pay.amount) : '') : itemId;
+    oeDesc = dbt?(dbt.desc+(pay?' — '+fmtDate(pay.date)+' '+fmt(pay.amount):'')):itemId;
   }
   document.getElementById('oe-desc').textContent = oeDesc;
-  // Populate datalist
+
+  // Show current files with delete buttons
+  const filesPreview = document.getElementById('oe-existing-files');
+  if(filesPreview){
+    if(currentFiles.length){
+      filesPreview.style.display='block';
+      filesPreview.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Allegati esistenti</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+        currentFiles.map((f,fi)=>{
+          if(f.driveFileId){
+            return `<div style="position:relative;"><div style="width:48px;height:48px;border-radius:8px;background:var(--green-bg);border:1px solid var(--green-light);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;" onclick="window.open('${f.url||'https://drive.google.com/file/d/'+f.driveFileId+'/view'}','_blank')">☁<span style="font-size:9px;color:var(--green);">${(f.name||'').slice(-6)}</span></div>
+              <button onclick="removeOnereFileFromModal(${fi})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;">✕</button></div>`;
+          }
+          if(f.data){
+            const isImg=f.type&&f.type.startsWith('image/');
+            return `<div style="position:relative;">${isImg?`<img style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer;" src="${f.data}">`:`<div style="width:48px;height:48px;border-radius:8px;background:var(--red-bg);border:1px solid var(--red-light);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;">📄</div>`}
+              <button onclick="removeOnereFileFromModal(${fi})" style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;">✕</button></div>`;
+          }
+          return '';
+        }).join('') + '</div>';
+    } else {
+      filesPreview.style.display='none';
+      filesPreview.innerHTML='';
+    }
+  }
+
+  // Reset new file upload
+  oneriEditFiles = [];
+  const newPreview = document.getElementById('oe-new-files-preview');
+  if(newPreview) newPreview.innerHTML='';
+  const fileInput = document.getElementById('oe-files-input');
+  if(fileInput) fileInput.value='';
+
+  // Store current files reference for deletion
+  window._oneriEditCurrentFiles = {itemId, source, files:[...currentFiles]};
+
   const inq = currentCondo()?.inquilini||[];
   const dl = document.getElementById('oe-inq-list');
   if(dl) dl.innerHTML = inq.map(i=>`<option value="${i}">`).join('');
@@ -2179,18 +2328,36 @@ function openOneriEdit(itemId, source){
 }
 
 function saveOneriEdit(){
-  const itemId = document.getElementById('oe-id').value;
-  const source = document.getElementById('oe-source').value;
-  const stato = document.getElementById('oe-stato').value;
-  const inquilino = document.getElementById('oe-inquilino').value.trim();
-  const notes = document.getElementById('oe-notes').value.trim();
-  if(source === 'manual'){
+  const itemId   = document.getElementById('oe-id').value;
+  const source   = document.getElementById('oe-source').value;
+  const stato    = document.getElementById('oe-stato').value;
+  const inquilino= document.getElementById('oe-inquilino').value.trim();
+  const notes    = document.getElementById('oe-notes').value.trim();
+
+  // Merge: kept existing files + newly added files
+  const keptFiles = window._oneriEditCurrentFiles?.files || [];
+  const mergedFiles = [...keptFiles, ...oneriEditFiles];
+
+  if(source==='manual'){
     const m = oneriManual.find(x=>x.id===itemId);
-    if(m){ m.stato=stato; m.inquilino=inquilino; m.notes=notes; }
+    if(m){ m.stato=stato; m.inquilino=inquilino; m.notes=notes; m.files=mergedFiles; }
   } else {
     oneriOverrides[itemId] = {stato, inquilino, notes};
+    // Save files directly on the debt payment
+    const parts = itemId.split('_');
+    const dbt = debiti.find(x=>x.id===parts[0]);
+    const pay = dbt?.payments.find(x=>x.id===parts.slice(1).join('_'));
+    if(pay) pay.files = mergedFiles;
   }
-  save(); closeModal('modal-oneri-edit'); showToast('Aggiornato'); renderOneri();
+
+  // Reset state
+  oneriEditFiles = [];
+  window._oneriEditCurrentFiles = null;
+
+  save();
+  closeModal('modal-oneri-edit');
+  showToast('Aggiornato ✓');
+  renderOneri();
 }
 
 // toggleCondPaid replaced by new oneri system
