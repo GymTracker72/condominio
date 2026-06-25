@@ -701,7 +701,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-entrate" class="view">
       <div class="page-header">
         <div><div class="page-title">Entrate</div><div class="page-subtitle">Affitti, rimborsi, altri incassi</div></div>
-        <button class="btn btn-primary" onclick="openModal('entrata')">+ Nuova entrata</button>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportEntrateExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openModal('entrata')">+ Nuova entrata</button></div>
       </div>
       <div class="filter-bar" id="filter-entrate"></div>
       <div class="card"><div class="tx-list" id="list-entrate"></div></div>
@@ -711,7 +711,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-uscite" class="view">
       <div class="page-header">
         <div><div class="page-title">Uscite</div><div class="page-subtitle">Spese, fatture, bonifici al condominio &nbsp;<span style="font-size:11px;background:var(--amber-bg);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:500;">TARI/acqua/riscaldamento → Oneri condomini</span></div></div>
-        <button class="btn btn-primary" onclick="openModal('uscita')">+ Nuova uscita</button>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportUsciteExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openModal('uscita')">+ Nuova uscita</button></div>
       </div>
       <div class="filter-bar" id="filter-uscite"></div>
       <div class="card"><div class="tx-list" id="list-uscite"></div></div>
@@ -720,7 +720,7 @@ textarea{resize:vertical;min-height:70px;}
     <!-- TUTTI -->
     <div id="view-tutti" class="view">
       <div class="page-header">
-        <div><div class="page-title">Tutti i movimenti</div><div class="page-subtitle">Storico completo</div></div>
+        <div><div class="page-title">Movimenti</div><div class="page-subtitle">Storico completo</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="exportXLSX()">📊 Esporta Excel</button>
           <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi</button>
@@ -739,7 +739,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-bilancio" class="view">
       <div class="page-header">
         <div><div class="page-title">Bilancio</div><div class="page-subtitle" id="bilancio-subtitle">Anno 2026</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportBilancioExcel()">↓ Excel</button><button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button></div>
       </div>
       <div id="bilancio-content"></div>
     </div>
@@ -747,9 +747,9 @@ textarea{resize:vertical;min-height:70px;}
     <!-- ONERI -->
     <div id="view-oneri" class="view">
       <div class="page-header">
-        <div><div class="page-title">Oneri a carico condomini</div><div class="page-subtitle">Sincronizzato dai Debiti condominio + voci manuali</div></div>
+        <div><div class="page-title">Riparto spese</div><div class="page-subtitle">Quote condominiali, riscaldamento e voci manuali</div></div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost btn-sm" onclick="openCondoModal(currentCondoId)">⚙ Gestisci inquilini</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportRipartoExcel()">↓ Excel</button>
           <button class="btn btn-primary" onclick="openOneriManualModal()">+ Voce manuale</button>
         </div>
       </div>
@@ -759,8 +759,8 @@ textarea{resize:vertical;min-height:70px;}
     <!-- REPORT -->
     <div id="view-report" class="view">
       <div class="page-header">
-        <div><div class="page-title">Report / 730</div><div class="page-subtitle">Riepilogo fiscale e contabile</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button>
+        <div><div class="page-title">Report 730</div><div class="page-subtitle">Riepilogo fiscale e contabile</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="export730Excel()">↓ Excel</button><button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button></div>
       </div>
       <div class="card" style="margin-bottom:20px;">
         <div style="font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:14px;">Regime fiscale applicato</div>
@@ -787,8 +787,9 @@ textarea{resize:vertical;min-height:70px;}
     <!-- DEBITI CONDOMINIO -->
     <div id="view-debiti" class="view">
       <div class="page-header">
-        <div><div class="page-title">Debiti condominio</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
+        <div><div class="page-title">Morosità</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
         <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportDebitiExcel()">↓ Excel</button>
           <button class="btn btn-ghost btn-sm" onclick="openImportModal()">📋 Importa estratto conto</button>
           <button class="btn btn-primary" onclick="openDebtModal()">+ Nuova voce debitoria</button>
         </div>
@@ -800,8 +801,8 @@ textarea{resize:vertical;min-height:70px;}
     <!-- PROPRIETARI -->
     <div id="view-proprietari" class="view">
       <div class="page-header">
-        <div><div class="page-title">Proprietari</div><div class="page-subtitle">Versamenti ai proprietari dell'appartamento</div></div>
-        <button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button>
+        <div><div class="page-title">Versamenti</div><div class="page-subtitle">Pagamenti effettuati dai proprietari</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportVersamentiExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button></div>
       </div>
       <div id="proprietari-content"></div>
     </div>
@@ -809,8 +810,8 @@ textarea{resize:vertical;min-height:70px;}
     <!-- SCADENZE -->
     <div id="view-scadenze" class="view">
       <div class="page-header">
-        <div><div class="page-title">Scadenzario</div><div class="page-subtitle">Prossimi pagamenti e scadenze</div></div>
-        <button class="btn btn-primary" onclick="openDeadlineModal()">+ Aggiungi scadenza</button>
+        <div><div class="page-title">Scadenziario</div><div class="page-subtitle">Prossimi pagamenti e scadenze</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportScadenzarioExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openDeadlineModal()">+ Aggiungi scadenza</button></div>
       </div>
       <div class="card" id="scadenze-list"></div>
     </div>
@@ -818,7 +819,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-scheda" class="view">
       <div class="page-header">
         <div>
-          <div class="page-title">🏠 Scheda Unità Immobiliare</div>
+          <div class="page-title">Scheda Immobile</div>
           <div class="page-subtitle" id="scheda-subtitle">Interno 18 — Via Filippo Meda 169, Roma</div>
         </div>
         <div style="display:flex;gap:8px;">
@@ -860,6 +861,7 @@ textarea{resize:vertical;min-height:70px;}
     <div id="view-morosita" class="view">
       <div class="page-header">
         <div><div class="page-title">Morosità inquilini</div><div class="page-subtitle">Quote non pagate dagli inquilini</div></div>
+        <div class="page-actions"><button class="btn btn-ghost btn-sm" onclick="exportMorositaExcel()">↓ Excel</button></div>
       </div>
       <div id="morosita-content"></div>
     </div>
@@ -4818,39 +4820,96 @@ function renderAnagraficaFiltro(ruolo, containerId){
 function renderMorosita(){
   const el = document.getElementById('morosita-content');
   if(!el) return;
-  // Build list from oneriManual where stato = da_riscuotere or parziale
+
+  // Include both manual oneri AND auto items from debiti payments where pagante is ex-inquilino
   const morosi = oneriManual.filter(o=>['da_riscuotere','parziale'].includes(o.stato));
-  const totMorosita = morosi.reduce((s,o)=>s+(+o.importo),0);
-  const byInquilino = {};
-  morosi.forEach(o=>{
-    const k = o.inquilino||'N/D';
-    byInquilino[k] = byInquilino[k]||[];
-    byInquilino[k].push(o);
+
+  // Also pull from debiti payments where pagante is ex-inquilino and cat is condominio/riscaldamento
+  const autoMorosi = [];
+  debiti.filter(d=>['condominio_ord','riscaldamento'].includes(d.cat)).forEach(d=>{
+    d.payments.forEach(p=>{
+      if(!p.pagante) return;
+      const isEx = anagrafica.some(a=>['ex_inquilino'].includes(a.ruolo) && a.nome===p.pagante);
+      if(isEx) autoMorosi.push({
+        id: d.id+'_'+p.id, desc: d.desc, cat: d.cat, anno: d.year||p.date?.slice(0,4)||'—',
+        importo: p.amount, inquilino: p.pagante, stato: p.stato||'da_riscuotere', source:'auto'
+      });
+    });
   });
-  if(!morosi.length){
+
+  const allMorosi = [...morosi.map(o=>({...o, anno:o.anno||o.year||'—', source:'manual'})), ...autoMorosi];
+
+  const totMorosita = allMorosi.reduce((s,o)=>s+(+o.importo),0);
+
+  if(!allMorosi.length){
     el.innerHTML='<div class="empty-state"><div class="empty-state-icon" style="font-size:36px;">✅</div><h3>Nessuna morosità</h3><p>Tutte le quote risultano saldate o non presenti</p></div>';
     return;
   }
-  el.innerHTML = `
-    <div class="stats-grid" style="margin-bottom:16px;">
-      <div class="stat-card"><div class="stat-label">Totale da riscuotere</div><div class="stat-value red">${fmt(totMorosita)}</div><div class="stat-delta">${morosi.length} voci aperte</div></div>
-      <div class="stat-card"><div class="stat-label">Inquilini morosi</div><div class="stat-value amber">${Object.keys(byInquilino).length}</div></div>
-    </div>
-    ${Object.entries(byInquilino).map(([nome, voci])=>{
-      const tot = voci.reduce((s,o)=>s+(+o.importo),0);
-      return `<div class="card" style="margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-          <div style="font-size:14px;font-weight:500;">${nome}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red);">${fmt(tot)}</div>
-        </div>
-        ${voci.map(o=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
-          <span style="flex:1;color:var(--text-2);">${o.desc||o.cat}</span>
-          <span style="font-size:11px;color:var(--text-3);">${o.anno||''}</span>
-          <span style="font-family:'DM Mono',monospace;color:var(--red);">${fmt(o.importo)}</span>
-          <span class="badge ${o.stato==='parziale'?'badge-amber':'badge-red'}">${o.stato==='parziale'?'Parziale':'Da riscuotere'}</span>
-        </div>`).join('')}
+
+  // Count unique debitori
+  const debitori = new Set(allMorosi.map(o=>o.inquilino||'N/D'));
+
+  // ── GROUP BY YEAR → CATEGORY ──
+  const catLabels = {
+    condominio_ord:'Quote condominiali', condominio:'Quote condominiali',
+    riscaldamento:'Riscaldamento', riscaldamento_cond:'Riscaldamento',
+    tari:'TARI', acqua:'Acqua', altro:'Altro'
+  };
+  const catIcons = {
+    condominio_ord:'🏛', condominio:'🏛',
+    riscaldamento:'🔥', riscaldamento_cond:'🔥',
+    tari:'🗑', acqua:'💧', altro:'📋'
+  };
+
+  const byYear = {};
+  allMorosi.forEach(o=>{
+    const y = o.anno||'—';
+    const cl = catLabels[o.cat]||o.cat||'Altro';
+    if(!byYear[y]) byYear[y]={};
+    if(!byYear[y][cl]) byYear[y][cl]={icon:catIcons[o.cat]||'📋', items:[]};
+    byYear[y][cl].items.push(o);
+  });
+
+  let html = `<div class="stats-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-label">Totale da riscuotere</div><div class="stat-value red">${fmt(totMorosita)}</div><div class="stat-delta">${allMorosi.length} voci aperte</div></div>
+    <div class="stat-card"><div class="stat-label">Soggetti morosi</div><div class="stat-value amber">${debitori.size}</div><div class="stat-delta">${[...debitori].join(', ')}</div></div>
+  </div>`;
+
+  // Sort years descending
+  Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).forEach(year=>{
+    const yearItems = Object.values(byYear[year]).flatMap(x=>x.items);
+    const yearTot = yearItems.reduce((s,o)=>s+(+o.importo),0);
+
+    html += `<div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+        <div style="font-size:17px;font-weight:600;">📅 ${year}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--red);">${fmt(yearTot)}</div>
       </div>`;
-    }).join('')}`;
+
+    Object.entries(byYear[year]).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([catLabel,{icon,items}])=>{
+      const catTot = items.reduce((s,o)=>s+(+o.importo),0);
+      html += `<div style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--red-bg);border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid var(--red-light);">
+          <span style="font-size:13px;font-weight:600;color:var(--red);">${icon} ${catLabel}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--red);">${fmt(catTot)}</span>
+        </div>
+        <div style="border:1px solid var(--red-light);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);overflow:hidden;">
+          ${items.sort((a,b)=>(a.inquilino||'').localeCompare(b.inquilino||'')).map(o=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface);font-size:13px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${o.desc||catLabel}</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${o.inquilino||'N/D'}</div>
+              </div>
+              <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--red);flex-shrink:0;">${fmt(o.importo)}</span>
+              <span class="badge ${o.stato==='parziale'?'badge-amber':'badge-red'}" style="flex-shrink:0;">${o.stato==='parziale'?'◑ Parziale':'⏳ Da riscuotere'}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
 }
 
 // ══ REPORT FINANZIARIO ══
@@ -4896,6 +4955,284 @@ function exportSchedaExcel(){
 }
 
 function exportSchedaPDF(){ showToast('Export PDF in sviluppo — usa la stampa del browser (Cmd+P)'); window.print(); }
+
+
+// ══════════════════════════════
+// EXPORT EXCEL — TUTTE LE VISTE
+// ══════════════════════════════
+
+function _xlsxCheck(){ if(!window.XLSX){ showToast('Libreria Excel non caricata'); return false; } return true; }
+function _xlsxSave(wb, name){ XLSX.writeFile(wb, name+'_'+currentYear+'.xlsx'); showToast('↓ Download: '+name+'_'+currentYear+'.xlsx'); }
+function _sheetFromRows(rows, cols){ const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=cols; return ws; }
+
+// Raggruppamento per anno+categoria
+function _groupByYearCat(items, getYear, getCat, getAmt){
+  const r={};
+  items.forEach(x=>{ const y=getYear(x)||'—', cl=getCat(x)||'Altro'; if(!r[y]) r[y]={}; if(!r[y][cl]) r[y][cl]=[]; r[y][cl].push(x); });
+  return r;
+}
+
+// ── ENTRATE ──
+function exportEntrateExcel(){
+  if(!_xlsxCheck()) return;
+  const wb = XLSX.utils.book_new();
+  const items = txs.filter(t=>t.type==='entrata' && t.date?.startsWith(currentYear));
+  const byYearCat = _groupByYearCat(items, t=>t.date?.slice(0,4), t=>CATEGORIES[t.cat]?.label||t.cat, t=>+t.amount);
+  const rows = [['ENTRATE — Anno '+currentYear],[],['Anno','Categoria','Data','Descrizione','Soggetto','Metodo','Importo (€)','Note']];
+  let tot=0;
+  Object.keys(byYearCat).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    Object.entries(byYearCat[y]).forEach(([cat,items])=>{
+      const catTot=items.reduce((s,t)=>s+(+t.amount),0);
+      items.sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{ rows.push([y,cat,t.date,t.desc||'',t.party||'',t.method||'',+t.amount,t.notes||'']); tot+=+t.amount; });
+      rows.push(['','','','','Subtotale: '+cat,'','',catTot]); rows.push([]);
+    });
+  });
+  rows.push(['','','','','','TOTALE','',tot]);
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:26},{wch:12},{wch:36},{wch:22},{wch:14},{wch:14},{wch:30}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Entrate');
+  _xlsxSave(wb,'Entrate');
+}
+
+// ── USCITE ──
+function exportUsciteExcel(){
+  if(!_xlsxCheck()) return;
+  const wb = XLSX.utils.book_new();
+  const items = txs.filter(t=>t.type==='uscita' && !CATEGORIES[t.cat]?.condOwned && t.date?.startsWith(currentYear));
+  const byYearCat = _groupByYearCat(items, t=>t.date?.slice(0,4), t=>CATEGORIES[t.cat]?.label||t.cat, t=>+t.amount);
+  const rows = [['USCITE PROPRIETARI — Anno '+currentYear],[],['Anno','Categoria','Data','Descrizione','Pagante','Metodo','Importo (€)','Note']];
+  let tot=0;
+  Object.keys(byYearCat).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    Object.entries(byYearCat[y]).forEach(([cat,items])=>{
+      const catTot=items.reduce((s,t)=>s+(+t.amount),0);
+      items.sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{ rows.push([y,cat,t.date,t.desc||'',t.pagante||t.party||'',t.method||'',+t.amount,t.notes||'']); tot+=+t.amount; });
+      rows.push(['','','','','Subtotale: '+cat,'','',catTot]); rows.push([]);
+    });
+  });
+  rows.push(['','','','','','TOTALE','',tot]);
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:26},{wch:12},{wch:36},{wch:22},{wch:14},{wch:14},{wch:30}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Uscite');
+  _xlsxSave(wb,'Uscite');
+}
+
+// ── BILANCIO ──
+function exportBilancioExcel(){
+  if(!_xlsxCheck()) return;
+  const wb = XLSX.utils.book_new();
+  const entrate = txs.filter(t=>t.type==='entrata' && t.date?.startsWith(currentYear));
+  const uscite  = txs.filter(t=>t.type==='uscita' && !CATEGORIES[t.cat]?.condOwned && t.date?.startsWith(currentYear));
+  const totE=entrate.reduce((s,t)=>s+(+t.amount),0), totU=uscite.reduce((s,t)=>s+(+t.amount),0);
+  const rows=[['BILANCIO — Anno '+currentYear],[],
+    ['ENTRATE'],['Categoria','N.','Totale (€)']];
+  const cIn={};
+  entrate.forEach(t=>{ cIn[CATEGORIES[t.cat]?.label||t.cat]=(cIn[CATEGORIES[t.cat]?.label||t.cat]||0)+(+t.amount); });
+  Object.entries(cIn).forEach(([c,v])=>rows.push([c,entrate.filter(t=>(CATEGORIES[t.cat]?.label||t.cat)===c).length,v]));
+  rows.push(['TOTALE ENTRATE','',totE]);
+  rows.push([],[]);
+  rows.push(['USCITE'],['Categoria','N.','Totale (€)']);
+  const cOut={};
+  uscite.forEach(t=>{ cOut[CATEGORIES[t.cat]?.label||t.cat]=(cOut[CATEGORIES[t.cat]?.label||t.cat]||0)+(+t.amount); });
+  Object.entries(cOut).forEach(([c,v])=>rows.push([c,uscite.filter(t=>(CATEGORIES[t.cat]?.label||t.cat)===c).length,v]));
+  rows.push(['TOTALE USCITE','',totU]);
+  rows.push([],[]);
+  rows.push(['SALDO NETTO','',totE-totU]);
+  const ws=_sheetFromRows(rows,[{wch:36},{wch:8},{wch:14}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Bilancio');
+  _xlsxSave(wb,'Bilancio');
+}
+
+// ── RIPARTO SPESE ──
+function exportRipartoExcel(){
+  if(!_xlsxCheck()) return;
+  const wb = XLSX.utils.book_new();
+  const catLbl={'condominio_ord':'Quote condominiali','riscaldamento':'Riscaldamento','condominio':'Quote condominiali','tari_cond':'TARI','acqua_cond':'Acqua','altro':'Altro'};
+  // Build all items (auto from debiti + manual)
+  const autoItems=[];
+  debiti.filter(d=>['condominio_ord','riscaldamento'].includes(d.cat)).forEach(d=>{
+    d.payments.forEach(p=>{
+      const ov=oneriOverrides[d.id+'_'+p.id]||{};
+      autoItems.push({year:d.year||p.date?.slice(0,4)||'—',cat:catLbl[d.cat]||d.cat,desc:d.desc,inquilino:ov.inquilino||p.pagante||'',amount:+p.amount,stato:ov.stato||(isInquilino(p.pagante,p.date)?'riscosso':isProprietario(p.pagante)?'a_carico_proprietari':'da_riscuotere'),date:p.date||''});
+    });
+  });
+  const manualItems=oneriManual.map(m=>({year:m.anno||m.year||'—',cat:catLbl[m.cat]||m.cat,desc:m.desc||m.cat,inquilino:m.inquilino||'',amount:+m.importo,stato:m.stato||'da_riscuotere',date:''}));
+  const all=[...autoItems,...manualItems].sort((a,b)=>b.year.localeCompare(a.year)||a.cat.localeCompare(b.cat));
+  const rows=[['RIPARTO SPESE'],[],['Anno','Categoria','Descrizione','Soggetto','Data','Importo (€)','Stato']];
+  let curY='', curC='';
+  all.forEach(x=>{
+    if(x.year!==curY){ rows.push([]);rows.push([x.year,'','','','','',''],[]);curY=x.year;curC=''; }
+    if(x.cat!==curC){ rows.push(['',x.cat,'','','','','']);curC=x.cat; }
+    rows.push(['','',x.desc,x.inquilino,x.date,x.amount,x.stato]);
+  });
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:24},{wch:36},{wch:22},{wch:12},{wch:14},{wch:20}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Riparto spese');
+  _xlsxSave(wb,'RipartoSpese');
+}
+
+// ── VERSAMENTI PROPRIETARI ──
+function exportVersamentiExcel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  // propPayments + owner txs
+  const ownerCats=['riscaldamento_prop','condominio_prop','manutenzione'];
+  const propPayIds=new Set(propPayments.map(p=>p.txId).filter(Boolean));
+  const allPays=[
+    ...propPayments.map(p=>({date:p.date,nome:p.prop||p.name||'—',desc:p.desc||'',cat:CATEGORIES[p.cat]?.label||p.cat||'',method:p.method||'',amount:+(p.amount||0),commission:+(p.commission||0),total:+(p.total||p.amount||0),year:p.date?.slice(0,4)||'—'})),
+    ...txs.filter(t=>t.type==='uscita'&&ownerCats.includes(t.cat)&&!propPayIds.has(t.id)).map(t=>({date:t.date,nome:t.pagante||t.party||'—',desc:t.desc||'',cat:CATEGORIES[t.cat]?.label||t.cat||'',method:t.method||'',amount:+(t.amount||0),commission:0,total:+(t.amount||0),year:t.date?.slice(0,4)||'—'}))
+  ].sort((a,b)=>b.date.localeCompare(a.date));
+  const byYearCat=_groupByYearCat(allPays,x=>x.year,x=>x.cat,x=>x.total);
+  const rows=[['VERSAMENTI PROPRIETARI'],[],['Anno','Categoria','Data','Proprietario','Descrizione','Metodo','Importo (€)','Comm. (€)','Totale (€)']];
+  let tot=0;
+  Object.keys(byYearCat).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    Object.entries(byYearCat[y]).forEach(([cat,items])=>{
+      const catTot=items.reduce((s,x)=>s+x.total,0);
+      items.forEach(x=>{ rows.push([y,cat,x.date,x.nome,x.desc,x.method,x.amount,x.commission,x.total]); tot+=x.total; });
+      rows.push(['','','','','Subtotale '+cat,'','','',catTot]); rows.push([]);
+    });
+  });
+  rows.push(['','','','','','TOTALE','','',tot]);
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:26},{wch:12},{wch:22},{wch:36},{wch:14},{wch:14},{wch:12},{wch:14}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Versamenti');
+  _xlsxSave(wb,'Versamenti');
+}
+
+// ── DEBITI CONDOMINIO ──
+function exportDebitiExcel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  const catLbl={'riscaldamento':'Riscaldamento','condominio_ord':'Quote condominiali','bonifica':'Bonifica/Amianto','portone':'Sostituzione portone','lavori_straord':'Lavori straordinari','antincendio':'Antincendio','altro':'Altro'};
+  const sorted=[...debiti].sort((a,b)=>(b.year||'').localeCompare(a.year||'')||(a.cat||'').localeCompare(b.cat||''));
+  // Foglio 1: riepilogo per anno+categoria
+  const rows1=[['DEBITI CONDOMINIO — Riepilogo per anno e categoria'],[],['Anno','Categoria','Voce','Dovuto (€)','Versato (€)','Residuo (€)','Stato']];
+  const byYC={};
+  sorted.forEach(d=>{
+    const y=d.year||'—', cl=catLbl[d.cat]||d.cat||'Altro';
+    if(!byYC[y]) byYC[y]={}; if(!byYC[y][cl]) byYC[y][cl]=[];
+    const paid=d.payments.reduce((s,p)=>s+(+p.amount),0);
+    byYC[y][cl].push({desc:d.desc,total:+d.total,paid,res:+d.total-paid,stato:paid>=+d.total?'Saldato':paid>0?'Parziale':'Aperto'});
+  });
+  Object.keys(byYC).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    Object.entries(byYC[y]).forEach(([cat,items])=>{
+      rows1.push(['',cat,'','','','','']);
+      items.forEach(x=>rows1.push([y,'',x.desc,x.total,x.paid,x.res,x.stato]));
+      const t=items.reduce((s,x)=>({total:s.total+x.total,paid:s.paid+x.paid,res:s.res+x.res}),{total:0,paid:0,res:0});
+      rows1.push(['','','Subtotale '+cat,t.total,t.paid,t.res,'']); rows1.push([]);
+    });
+  });
+  const totAll=sorted.reduce((s,d)=>({total:s.total+(+d.total),paid:s.paid+d.payments.reduce((sp,p)=>sp+(+p.amount),0)}),{total:0,paid:0});
+  rows1.push(['','','TOTALE',totAll.total,totAll.paid,totAll.total-totAll.paid,'']);
+  const ws1=_sheetFromRows(rows1,[{wch:8},{wch:24},{wch:36},{wch:14},{wch:14},{wch:14},{wch:12}]);
+  XLSX.utils.book_append_sheet(wb,ws1,'Riepilogo');
+  // Foglio 2: dettaglio pagamenti
+  const rows2=[['DETTAGLIO PAGAMENTI'],[],['Anno','Categoria','Voce','Data Pag.','Chi ha pagato','Metodo','Importo (€)','Commissione (€)','Note']];
+  sorted.forEach(d=>{
+    const cl=catLbl[d.cat]||d.cat;
+    d.payments.sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{
+      rows2.push([d.year||'—',cl,d.desc,p.date,p.pagante||'',p.method||'',+p.amount,+(p.commission||0),p.notes||'']);
+    });
+  });
+  const ws2=_sheetFromRows(rows2,[{wch:8},{wch:24},{wch:36},{wch:12},{wch:22},{wch:14},{wch:14},{wch:14},{wch:30}]);
+  XLSX.utils.book_append_sheet(wb,ws2,'Pagamenti');
+  _xlsxSave(wb,'DebitiCondominio');
+}
+
+// ── MOROSITÀ ──
+function exportMorositaExcel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  const catLbl={'condominio_ord':'Quote condominiali','condominio':'Quote condominiali','riscaldamento':'Riscaldamento','riscaldamento_cond':'Riscaldamento','tari':'TARI','acqua':'Acqua','altro':'Altro'};
+  const morosi=oneriManual.filter(o=>['da_riscuotere','parziale'].includes(o.stato)).map(o=>({year:o.anno||o.year||'—',cat:catLbl[o.cat]||o.cat,desc:o.desc||o.cat,inquilino:o.inquilino||'N/D',amount:+(o.importo||0),stato:o.stato}));
+  morosi.sort((a,b)=>b.year.localeCompare(a.year)||a.cat.localeCompare(b.cat));
+  const rows=[['MOROSITÀ'],[],['Anno','Categoria','Descrizione','Soggetto','Importo (€)','Stato']];
+  let tot=0;
+  const byYC=_groupByYearCat(morosi,x=>x.year,x=>x.cat,x=>x.amount);
+  Object.keys(byYC).sort((a,b)=>b.localeCompare(a)).forEach(y=>{
+    Object.entries(byYC[y]).forEach(([cat,items])=>{
+      const catTot=items.reduce((s,x)=>s+x.amount,0);
+      rows.push([y,cat,'','','','']);
+      items.forEach(x=>{ rows.push([y,'',x.desc,x.inquilino,x.amount,x.stato]); tot+=x.amount; });
+      rows.push(['','','Subtotale '+cat,'',catTot,'']); rows.push([]);
+    });
+  });
+  rows.push(['','','TOTALE','',tot,'']);
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:24},{wch:36},{wch:22},{wch:14},{wch:20}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Morosità');
+  _xlsxSave(wb,'Morosita');
+}
+
+// ── SCADENZIARIO ──
+function exportScadenzarioExcel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  const tipoLbl={rata_condominio:'Rata condominio',affitto:'Affitto',imu:'IMU',tari:'TARI',riscaldamento:'Riscaldamento',altro:'Altro'};
+  const sorted=[...deadlines||[]].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const byYearTipo=_groupByYearCat(sorted,x=>x.date?.slice(0,4)||'—',x=>tipoLbl[x.tipo]||x.tipo||'Altro',x=>+(x.importo||0));
+  const rows=[['SCADENZIARIO'],[],['Anno','Tipo','Data','Descrizione','Importo (€)','Stato','Note']];
+  let tot=0;
+  Object.keys(byYearTipo).sort((a,b)=>a.localeCompare(b)).forEach(y=>{
+    Object.entries(byYearTipo[y]).forEach(([tipo,items])=>{
+      const tipoTot=items.reduce((s,x)=>s+(+(x.importo||0)),0);
+      rows.push([y,tipo,'','','','','']);
+      items.forEach(x=>{ rows.push([y,'',x.date,x.desc||'',+(x.importo||0),x.stato||'',x.note||'']); tot+=+(x.importo||0); });
+      rows.push(['','','Subtotale '+tipo,'',tipoTot,'','']); rows.push([]);
+    });
+  });
+  rows.push(['','','TOTALE','',tot,'','']);
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:22},{wch:12},{wch:36},{wch:14},{wch:14},{wch:28}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Scadenziario');
+  _xlsxSave(wb,'Scadenziario');
+}
+
+// ── REPORT 730 ──
+function export730Excel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  const affitti=txs.filter(t=>t.type==='entrata'&&['entrata_affitto','affitto'].includes(t.cat)&&t.date?.startsWith(currentYear));
+  const uscite=txs.filter(t=>t.type==='uscita'&&!CATEGORIES[t.cat]?.condOwned&&t.date?.startsWith(currentYear));
+  const totAff=affitti.reduce((s,t)=>s+(+t.amount),0);
+  const totUsc=uscite.reduce((s,t)=>s+(+t.amount),0);
+  const regime=document.querySelector('.regime-btn.active')?.id?.replace('btn-','') || 'cedolare21';
+  const aliquota=regime==='cedolare21'?0.21:regime==='cedolare10'?0.10:0.23;
+  const impostaLorda=totAff*aliquota;
+  const rows=[
+    ['RIEPILOGO 730 / REDDITI — Anno '+currentYear],
+    [],
+    ['DATI LOCAZIONE'],
+    ['Canoni di locazione percepiti',totAff],
+    ['Regime fiscale applicato',regime==='cedolare21'?'Cedolare secca 21%':regime==='cedolare10'?'Cedolare secca 10%':'IRPEF ordinario'],
+    ['Aliquota',aliquota*100+'%'],
+    ['Imposta lorda stimata',impostaLorda],
+    [],
+    ['USCITE DETRAIBILI/DEDUCIBILI'],
+    ['Categoria','Importo (€)'],
+  ];
+  const cOut={};
+  uscite.forEach(t=>{ const lbl=CATEGORIES[t.cat]?.label||t.cat; cOut[lbl]=(cOut[lbl]||0)+(+t.amount); });
+  Object.entries(cOut).forEach(([c,v])=>rows.push([c,v]));
+  rows.push([]);
+  rows.push(['TOTALE USCITE',totUsc]);
+  rows.push(['SALDO NETTO (Entrate - Uscite)',totAff-totUsc]);
+  rows.push([]);
+  rows.push(['DETTAGLIO AFFITTI'],['Data','Inquilino/Soggetto','Importo (€)','Metodo','Note']);
+  affitti.sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>rows.push([t.date,t.party||'',+t.amount,t.method||'',t.notes||'']));
+  const ws=_sheetFromRows(rows,[{wch:36},{wch:20}]);
+  XLSX.utils.book_append_sheet(wb,ws,'730');
+  _xlsxSave(wb,'Report730');
+}
+
+// ── SITUAZIONE FINANZIARIA ──
+function exportReportFinExcel(){
+  if(!_xlsxCheck()) return;
+  const wb=XLSX.utils.book_new();
+  const years=[...new Set(txs.map(t=>t.date?.slice(0,4)))].filter(Boolean).sort().reverse();
+  const rows=[['SITUAZIONE FINANZIARIA STORICA'],[],['Anno','Entrate (€)','Uscite (€)','Saldo (€)']];
+  years.forEach(y=>{
+    const e=txs.filter(t=>t.type==='entrata'&&t.date?.startsWith(y)).reduce((s,t)=>s+(+t.amount),0);
+    const u=txs.filter(t=>t.type==='uscita'&&!CATEGORIES[t.cat]?.condOwned&&t.date?.startsWith(y)).reduce((s,t)=>s+(+t.amount),0);
+    rows.push([y,e,u,e-u]);
+  });
+  const ws=_sheetFromRows(rows,[{wch:8},{wch:14},{wch:14},{wch:14}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Storico');
+  _xlsxSave(wb,'SituazioneFinanziaria');
+}
 
 // ══ MOBILE NAVIGATION ══
 function toggleSidebar(){
