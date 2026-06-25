@@ -751,6 +751,7 @@ textarea{resize:vertical;min-height:70px;}
         <div><div class="page-title">Riparto spese</div><div class="page-subtitle">Quote condominiali, riscaldamento e voci manuali</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="exportRipartoExcel()">↓ Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="openAutoRateModal()">🤖 Calcola automaticamente</button>
           <button class="btn btn-primary" onclick="openOneriManualModal()">+ Voce manuale</button>
         </div>
       </div>
@@ -1433,6 +1434,7 @@ textarea{resize:vertical;min-height:70px;}
         <div><div class="page-title">Riparto spese</div><div class="page-subtitle">Quote condominiali, riscaldamento e voci manuali</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="exportRipartoExcel()">↓ Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="openAutoRateModal()">🤖 Calcola automaticamente</button>
           <button class="btn btn-primary" onclick="openOneriManualModal()">+ Voce manuale</button>
         </div>
       </div>
@@ -1989,7 +1991,7 @@ textarea{resize:vertical;min-height:70px;}
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '2026-06-25 18:02 — rateDebito';
+const APP_VERSION = '2026-06-25 19:15 — autoRate';
 // ══ CONSTANTS ══
 // Global file viewer cache - avoids base64 in HTML attributes
 const _fileCache = {};
@@ -6393,6 +6395,389 @@ function toggleStatoRata(rataId){
   renderOneri();
 }
 
+
+// ══════════════════════════════════════════════════
+// CALCOLO AUTOMATICO PIANO RATE
+// ══════════════════════════════════════════════════
+
+// Stato globale anteprima auto-rate
+let _autoRatePreview = [];
+
+// ── INFERENCE ENGINE ──
+function inferRateConfig(voce){
+  const payments = voce.payments || [];
+  const total = +voce.total || 0;
+
+  // Skip if rates already exist
+  const existing = rateDebito.filter(r=>r.voceDebitoriaId===voce.id && !r.deletedAt);
+  if(existing.length > 0){
+    return { skip: true, reason: `Già ${existing.length} rate generate` };
+  }
+
+  // ── Inferisci soggetto ──
+  const paganti = payments.map(p=>p.pagante).filter(Boolean);
+  const primoP = paganti[0] || '';
+  const tipoSoggetto = isProprietario(primoP) ? 'PROPRIETARIO'
+                     : isInquilino(primoP, null) ? 'INQUILINO'
+                     : payments.length === 0 ? 'DA_DEFINIRE'
+                     : 'DA_DEFINIRE';
+
+  // ── Caso conguaglio / una-tantum ──
+  const isConguaglio = /conguaglio|congual|saldo|unico/i.test(voce.desc);
+  if(isConguaglio || payments.length <= 1){
+    const data = payments[0]?.date || (voce.year ? voce.year+'-01-15' : new Date().toISOString().split('T')[0]);
+    const stato = payments.length === 1 ? 'PAGATA' : (data < new Date().toISOString().split('T')[0] ? 'SCADUTA' : 'DA_PAGARE');
+    return {
+      skip: false,
+      affidabilita: isConguaglio ? 'ALTA' : (payments.length===1 ? 'MEDIA' : 'BASSA'),
+      motivazione: isConguaglio ? 'Conguaglio — voce una tantum' : 'Pagamento unico',
+      nRate: 1,
+      importoRata: total,
+      primaScadenza: data,
+      frequenza: 'mensile',
+      tipoSoggetto,
+      soggetto: primoP,
+      ratePreview: [{
+        n:1, scadenza:data, importo:total, stato,
+        pagamentoRef: payments[0] || null
+      }]
+    };
+  }
+
+  // ── Calcola moda degli importi ──
+  const importi = payments.map(p=>Math.round(+p.amount * 100)/100).filter(x=>x>0);
+  const freq = {};
+  importi.forEach(v=>{ freq[v]=(freq[v]||0)+1; });
+  const moda = +Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+  const tuttiUguali = importi.every(v=>Math.abs(v-importi[0])<0.02);
+  const modaFreq = freq[moda];
+  const modaPct = modaFreq/importi.length;
+
+  // ── Affidabilità ──
+  let affidabilita, motivazione;
+  if(tuttiUguali){
+    affidabilita = 'ALTA';
+    motivazione = `Tutti i ${importi.length} pagamenti uguali a ${fmt(moda)}`;
+  } else if(modaPct >= 0.6){
+    affidabilita = 'MEDIA';
+    motivazione = `Moda ${fmt(moda)} su ${Math.round(modaPct*100)}% dei pagamenti`;
+  } else {
+    affidabilita = 'BASSA';
+    motivazione = `Importi variabili — verifica manuale consigliata`;
+  }
+
+  // ── Stima n. rate ──
+  const nRateStimato = Math.max(1, Math.round(total / moda));
+
+  // ── Prima scadenza ──
+  const dateOrd = [...payments].sort((a,b)=>a.date.localeCompare(b.date));
+  const primaData = dateOrd[0]?.date || (voce.year ? voce.year+'-01-15' : '');
+
+  // ── Frequenza ──
+  let frequenza = 'mensile';
+  if(dateOrd.length >= 2){
+    const d1 = new Date(dateOrd[0].date);
+    const d2 = new Date(dateOrd[1].date);
+    const diffDays = Math.round((d2-d1)/(1000*60*60*24));
+    if(diffDays <= 35) frequenza = 'mensile';
+    else if(diffDays <= 70) frequenza = 'bimestrale';
+    else if(diffDays <= 100) frequenza = 'trimestrale';
+    else frequenza = 'semestrale';
+  }
+
+  // ── Genera preview rate ──
+  const oggi = new Date().toISOString().split('T')[0];
+  const ratePreview = [];
+  for(let i=0; i<nRateStimato; i++){
+    const scad = addMonths(primaData, i, frequenza);
+    // Cerca pagamento corrispondente (per data approssimativa)
+    const matchPay = payments.find(p=>{
+      const diff = Math.abs(new Date(p.date)-new Date(scad))/(1000*60*60*24);
+      return diff <= 45 && Math.abs(+p.amount - moda) < moda*0.1;
+    });
+    const stato = matchPay ? 'PAGATA'
+                : scad < oggi ? 'SCADUTA'
+                : 'DA_PAGARE';
+    ratePreview.push({n:i+1, scadenza:scad, importo:moda, stato, pagamentoRef:matchPay||null});
+  }
+
+  return {
+    skip: false,
+    affidabilita,
+    motivazione,
+    nRate: nRateStimato,
+    importoRata: moda,
+    primaScadenza: primaData,
+    frequenza,
+    tipoSoggetto,
+    soggetto: primoP,
+    ratePreview
+  };
+}
+
+// ── APRI MODALE CALCOLO AUTOMATICO ──
+function openAutoRateModal(){
+  const el = document.getElementById('auto-rate-content');
+  if(!el) return;
+
+  _autoRatePreview = [];
+
+  // Analizza tutte le voci
+  const analisi = debiti.map(voce=>{
+    const cfg = inferRateConfig(voce);
+    return { voce, cfg };
+  });
+
+  const daGenerare = analisi.filter(x=>!x.cfg.skip);
+  const skipped = analisi.filter(x=>x.cfg.skip);
+
+  if(!daGenerare.length){
+    el.innerHTML = `<div class="alert alert-info">
+      <span>ℹ️</span>
+      <div>Tutte le voci hanno già un piano rate generato.
+      ${skipped.length?('<br>'+skipped.map(x=>`<strong>${x.voce.desc}</strong>: ${x.cfg.reason}`).join('<br>')):''}
+</div>    </div>`;
+    document.getElementById('btn-conferma-auto-rate').style.display='none';
+    document.getElementById('modal-auto-rate').classList.add('open');
+    return;
+  }
+
+  const affidColors = {
+    ALTA:  {bg:'var(--green-bg)',  color:'var(--green)',  icon:'✓'},
+    MEDIA: {bg:'var(--amber-bg)', color:'var(--amber)', icon:'◑'},
+    BASSA: {bg:'var(--red-bg)',   color:'var(--red)',   icon:'⚠'},
+  };
+
+  let html = `<div class="alert alert-info" style="margin-bottom:16px;">
+    <span>ℹ️</span>
+    <div>Analizzate <strong>${analisi.length}</strong> voci debitorie. 
+    <strong>${daGenerare.length}</strong> da generare, 
+    <strong>${skipped.length}</strong> già con rate.<br>
+    <em>Verifica e correggi ogni voce, poi clicca "Genera tutte le rate confermate".</em></div>
+  </div>`;
+
+  // Preview modificabile per ogni voce
+  daGenerare.forEach((item, idx)=>{
+    const {voce, cfg} = item;
+    const afc = affidColors[cfg.affidabilita];
+    const rowId = `ar_${idx}`;
+
+    // Salva in _autoRatePreview per la conferma
+    _autoRatePreview.push({
+      voceId: voce.id,
+      voceDesc: voce.desc,
+      cfg: {...cfg},
+      confermata: cfg.affidabilita === 'ALTA', // pre-spunta solo se ALTA
+      rowId
+    });
+
+    html += `<div class="card" style="margin-bottom:14px;border-left:3px solid ${afc.color};" id="card_${rowId}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;">${voce.desc}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px;">Anno ${voce.year||'—'} · Totale ${fmt(voce.total)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${afc.bg};color:${afc.color};">${afc.icon} Affidabilità ${cfg.affidabilita}</span>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:500;">
+            <input type="checkbox" id="chk_${rowId}" ${cfg.affidabilita==='ALTA'?'checked':''} onchange="toggleAutoRateConferma('${rowId}',this.checked)" style="width:16px;height:16px;">
+            Conferma
+          </label>
+        </div>
+      </div>
+      <div style="font-size:12px;color:${afc.color};background:${afc.bg};padding:6px 10px;border-radius:6px;margin-bottom:12px;">
+        ${afc.icon} ${cfg.motivazione}
+      </div>
+
+      <!-- Parametri modificabili -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;" id="params_${rowId}">
+        <div><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">N. rate</label>
+          <input type="number" min="1" max="60" value="${cfg.nRate}" id="nr_${rowId}"
+            oninput="_autoRateUpdatePreview('${rowId}')"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;"></div>
+        <div><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">Importo rata (€)</label>
+          <input type="number" step="0.01" value="${cfg.importoRata}" id="ir_${rowId}"
+            oninput="_autoRateUpdatePreview('${rowId}')"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;"></div>
+        <div><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">Prima scadenza</label>
+          <input type="date" value="${cfg.primaScadenza}" id="ps_${rowId}"
+            oninput="_autoRateUpdatePreview('${rowId}')"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;"></div>
+        <div><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">Frequenza</label>
+          <select id="fq_${rowId}" onchange="_autoRateUpdatePreview('${rowId}')"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;">
+            <option value="mensile" ${cfg.frequenza==='mensile'?'selected':''}>Mensile</option>
+            <option value="bimestrale" ${cfg.frequenza==='bimestrale'?'selected':''}>Bimestrale</option>
+            <option value="trimestrale" ${cfg.frequenza==='trimestrale'?'selected':''}>Trimestrale</option>
+            <option value="semestrale" ${cfg.frequenza==='semestrale'?'selected':''}>Semestrale</option>
+          </select></div>
+        <div style="grid-column:1/3;"><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">A carico di</label>
+          <select id="ac_${rowId}" onchange="_autoRateUpdatePreview('${rowId}')"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;">
+            <option value="INQUILINO" ${cfg.tipoSoggetto==='INQUILINO'?'selected':''}>🏠 Inquilino</option>
+            <option value="PROPRIETARIO" ${cfg.tipoSoggetto==='PROPRIETARIO'?'selected':''}>🔑 Proprietario</option>
+            <option value="MISTO" ${cfg.tipoSoggetto==='MISTO'?'selected':''}>⇄ Misto</option>
+            <option value="DA_DEFINIRE" ${cfg.tipoSoggetto==='DA_DEFINIRE'?'selected':''}>❓ Da definire</option>
+          </select></div>
+        <div style="grid-column:3/5;"><label style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;">Soggetto specifico</label>
+          <input type="text" value="${cfg.soggetto||''}" id="sg_${rowId}"
+            style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;margin-top:4px;" placeholder="Lascia vuoto per tipo generico">
+          </div>
+      </div>
+
+      <!-- Preview rate (tabella) -->
+      <div id="preview_${rowId}" style="overflow-x:auto;">
+        ${_renderRatePreviewTable(cfg.ratePreview)}
+      </div>
+    </div>`;
+  });
+
+  // Voci skippate
+  if(skipped.length){
+    html += `<div class="card" style="background:var(--surface2);margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);margin-bottom:8px;">VOCI GIÀ CON PIANO RATE (saltate)</div>
+      ${skipped.map(x=>`<div style="font-size:12px;color:var(--text-3);padding:3px 0;">✓ ${x.voce.desc} — ${x.cfg.reason}</div>`).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  document.getElementById('btn-conferma-auto-rate').style.display='';
+  document.getElementById('modal-auto-rate').classList.add('open');
+}
+
+function _renderRatePreviewTable(rates){
+  if(!rates||!rates.length) return '<div style="color:var(--text-3);font-size:12px;">Nessuna rata</div>';
+  const statoStyle = {
+    PAGATA:  'color:var(--green);',
+    DA_PAGARE:'color:var(--blue);',
+    SCADUTA: 'color:var(--red);',
+  };
+  const maxShow = 4;
+  const shown = rates.slice(0, maxShow);
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="border-bottom:1px solid var(--border);">
+      <th style="padding:4px 8px;text-align:left;color:var(--text-3);">#</th>
+      <th style="padding:4px 8px;text-align:left;color:var(--text-3);">Scadenza</th>
+      <th style="padding:4px 8px;text-align:right;color:var(--text-3);">Importo</th>
+      <th style="padding:4px 8px;text-align:center;color:var(--text-3);">Stato</th>
+      <th style="padding:4px 8px;text-align:left;color:var(--text-3);">Rif. pag.</th>
+    </tr></thead>
+    <tbody>
+      ${shown.map(r=>`<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:4px 8px;">${r.n}</td>
+        <td style="padding:4px 8px;">${fmtDate(r.scadenza)}</td>
+        <td style="padding:4px 8px;text-align:right;font-family:'DM Mono',monospace;">${fmt(r.importo)}</td>
+        <td style="padding:4px 8px;text-align:center;${statoStyle[r.stato]||''}">${r.stato}</td>
+        <td style="padding:4px 8px;color:var(--text-3);">${r.pagamentoRef?'✓ '+fmt(r.pagamentoRef.amount)+' ('+fmtDate(r.pagamentoRef.date)+')':'—'}</td>
+      </tr>`).join('')}
+      ${rates.length>maxShow?`<tr><td colspan="5" style="padding:4px 8px;color:var(--text-3);font-style:italic;">... e altre ${rates.length-maxShow} rate</td></tr>`:''}
+    </tbody>
+  </table>`;
+}
+
+// Aggiorna preview quando l'utente modifica i parametri
+function _autoRateUpdatePreview(rowId){
+  const pr = _autoRatePreview.find(x=>x.rowId===rowId);
+  if(!pr) return;
+  const nRate   = parseInt(document.getElementById('nr_'+rowId)?.value)||1;
+  const impRata = parseFloat(document.getElementById('ir_'+rowId)?.value)||0;
+  const prima   = document.getElementById('ps_'+rowId)?.value||'';
+  const freq    = document.getElementById('fq_'+rowId)?.value||'mensile';
+  const oggi    = new Date().toISOString().split('T')[0];
+
+  // Rigenera rate preview
+  const voce = debiti.find(x=>x.id===pr.voceId);
+  const payments = voce?.payments||[];
+  const ratePreview = [];
+  for(let i=0; i<nRate; i++){
+    const scad = addMonths(prima, i, freq);
+    const matchPay = payments.find(p=>{
+      const diff = Math.abs(new Date(p.date)-new Date(scad))/(1000*60*60*24);
+      return diff <= 45 && Math.abs(+p.amount - impRata) < impRata*0.15;
+    });
+    const stato = matchPay?'PAGATA':scad<oggi?'SCADUTA':'DA_PAGARE';
+    ratePreview.push({n:i+1, scadenza:scad, importo:impRata, stato, pagamentoRef:matchPay||null});
+  }
+  pr.cfg.nRate = nRate;
+  pr.cfg.importoRata = impRata;
+  pr.cfg.primaScadenza = prima;
+  pr.cfg.frequenza = freq;
+  pr.cfg.ratePreview = ratePreview;
+
+  const prevEl = document.getElementById('preview_'+rowId);
+  if(prevEl) prevEl.innerHTML = _renderRatePreviewTable(ratePreview);
+}
+
+function toggleAutoRateConferma(rowId, checked){
+  const pr = _autoRatePreview.find(x=>x.rowId===rowId);
+  if(pr) pr.confermata = checked;
+}
+
+// ── CONFERMA E GENERA ──
+function confermaAutoRate(){
+  const daGenerare = _autoRatePreview.filter(x=>x.confermata);
+  if(!daGenerare.length){
+    showToast('Seleziona almeno una voce da confermare');
+    return;
+  }
+
+  // Riepilogo finale
+  const riepilogo = daGenerare.map(pr=>{
+    const totRate = pr.cfg.nRate * pr.cfg.importoRata;
+    return `${pr.voceDesc}: ${pr.cfg.nRate} rate × ${fmt(pr.cfg.importoRata)} = ${fmt(totRate)}`;
+  }).join('\n');
+
+  if(!confirm(`Stai per generare i seguenti piani rate:\n\n${riepilogo}\n\nTotale rate: ${daGenerare.reduce((s,p)=>s+p.cfg.nRate,0)}\n\nProcedere?`)) return;
+
+  let totalGenerate = 0;
+  daGenerare.forEach(pr=>{
+    const rowId = pr.rowId;
+    // Leggi valori correnti dai form
+    const nRate   = parseInt(document.getElementById('nr_'+rowId)?.value)||pr.cfg.nRate;
+    const impRata = parseFloat(document.getElementById('ir_'+rowId)?.value)||pr.cfg.importoRata;
+    const prima   = document.getElementById('ps_'+rowId)?.value||pr.cfg.primaScadenza;
+    const freq    = document.getElementById('fq_'+rowId)?.value||pr.cfg.frequenza;
+    const tipo    = document.getElementById('ac_'+rowId)?.value||pr.cfg.tipoSoggetto;
+    const sogg    = document.getElementById('sg_'+rowId)?.value||pr.cfg.soggetto||null;
+
+    const voce = debiti.find(x=>x.id===pr.voceId);
+    const payments = voce?.payments||[];
+    const oggi = new Date().toISOString().split('T')[0];
+
+    for(let i=0; i<nRate; i++){
+      const scad = addMonths(prima, i, freq);
+      const matchPay = payments.find(p=>{
+        const diff = Math.abs(new Date(p.date)-new Date(scad))/(1000*60*60*24);
+        return diff <= 45 && Math.abs(+p.amount - impRata) < impRata*0.15;
+      });
+      const stato = matchPay?'PAGATA':scad<oggi?'SCADUTA':'DA_PAGARE';
+      rateDebito.push({
+        id: uid_rate(),
+        voceDebitoriaId: pr.voceId,
+        numeroRata: i+1,
+        dataScadenza: scad,
+        importo: impRata,
+        soggettoTenutoId: sogg,
+        tipoSoggetto: tipo,
+        stato,
+        pagamentoDebitoId: matchPay?.id||null,
+        onereInquilinoId: null,
+        note: `Generato automaticamente (affidabilità ${pr.cfg.affidabilita})`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        deletedAt: null
+      });
+      totalGenerate++;
+    }
+    addAudit('rateDebito', pr.voceId, 'auto-generate', 'nRate', 0, nRate);
+  });
+
+  save(); // Salva su Drive (fonte primaria)
+  closeModal('modal-auto-rate');
+  showToast(`✓ Generate ${totalGenerate} rate su Google Drive`);
+  navigate('oneri');
+}
+
 // ══ MOBILE NAVIGATION ══
 function toggleSidebar(){
   const sidebar = document.getElementById('sidebar');
@@ -6549,6 +6934,22 @@ renderHome();
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-modifica-rata')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaModificaRata()">Salva</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Calcolo automatico rate -->
+<div class="modal-overlay" id="modal-auto-rate">
+  <div class="modal modal-xl" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🤖 Calcolo automatico piano rate</div>
+      <button class="modal-close" onclick="closeModal('modal-auto-rate')">✕</button>
+    </div>
+    <div id="auto-rate-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-auto-rate')">Annulla</button>
+      <button class="btn btn-primary" id="btn-conferma-auto-rate" onclick="confermaAutoRate()">✓ Genera tutte le rate confermate</button>
     </div>
   </div>
 </div>
