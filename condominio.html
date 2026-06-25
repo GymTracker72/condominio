@@ -1989,7 +1989,7 @@ textarea{resize:vertical;min-height:70px;}
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '2026-06-25 17:02';
+const APP_VERSION = '2026-06-25 18:02 — rateDebito';
 // ══ CONSTANTS ══
 // Global file viewer cache - avoids base64 in HTML attributes
 const _fileCache = {};
@@ -2089,14 +2089,18 @@ function loadCondos(){
 }
 function saveData(){
   if(!currentCondoId) return;
-  localStorage.setItem('condo_'+currentCondoId+'_txs', JSON.stringify(txs));
-  localStorage.setItem('condo_'+currentCondoId+'_deadlines', JSON.stringify(deadlines));
-  localStorage.setItem('condo_'+currentCondoId+'_debiti', JSON.stringify(debiti));
-  localStorage.setItem('condo_'+currentCondoId+'_oneri_manual', JSON.stringify(oneriManual));
-  localStorage.setItem('condo_'+currentCondoId+'_anagrafica', JSON.stringify(anagrafica));
+  // Cache locale (Drive è la fonte primaria — aggiornato via driveSaveData)
+  localStorage.setItem('condo_'+currentCondoId+'_txs',            JSON.stringify(txs));
+  localStorage.setItem('condo_'+currentCondoId+'_deadlines',       JSON.stringify(deadlines));
+  localStorage.setItem('condo_'+currentCondoId+'_debiti',          JSON.stringify(debiti));
+  localStorage.setItem('condo_'+currentCondoId+'_oneri_manual',    JSON.stringify(oneriManual));
+  localStorage.setItem('condo_'+currentCondoId+'_anagrafica',      JSON.stringify(anagrafica));
   localStorage.setItem('condo_'+currentCondoId+'_oneri_overrides', JSON.stringify(oneriOverrides));
-  localStorage.setItem('condo_'+currentCondoId+'_prop', JSON.stringify(propPayments));
-  localStorage.setItem('condo_'+currentCondoId+'_proprietari', JSON.stringify(proprietari));
+  localStorage.setItem('condo_'+currentCondoId+'_prop',            JSON.stringify(propPayments));
+  localStorage.setItem('condo_'+currentCondoId+'_proprietari',     JSON.stringify(proprietari));
+  localStorage.setItem('condo_'+currentCondoId+'_rate_debito',     JSON.stringify(rateDebito));
+  localStorage.setItem('condo_'+currentCondoId+'_audit',           JSON.stringify(auditLogs));
+  // Salva su Drive (fonte primaria)
   if(driveAccessToken){
     clearTimeout(syncTimer);
     setDriveStatus('syncing','Salvataggio...');
@@ -2184,8 +2188,7 @@ function goHome(){
 function openCondo(id){
   currentCondoId = id;
   loadData(id);
-  // Repair owner tx categories after data is loaded
-  setTimeout(repairOwnerTxCategories, 100);
+  setTimeout(()=>{ repairOwnerTxCategories(); aggiornaRateScadute(); }, 100);
   const c = currentCondo();
   // Update sidebar
   document.getElementById('sb-name').textContent = c.name;
@@ -3715,6 +3718,7 @@ function renderDebiti(){
             <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
               ${stato}
               ${!isSald?`<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openDebtPayModal('${d.id}')">+ Paga</button>`:''}
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openGeneraRateModal('${d.id}')" title="Genera piano rate" style="font-size:11px;padding:4px 8px;">📋 Rate</button>
             </div>
             <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
               <button class="btn-icon" onclick="event.stopPropagation();openDebtModal('${d.id}')" title="Modifica voce">✎</button>
@@ -5001,7 +5005,13 @@ async function driveSaveCondos(){
 async function driveSaveData(manual=false){
   if(!driveAccessToken||!currentCondoId) return;
   const c=currentCondo();
-  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({txs,deadlines,debiti,propPayments,proprietari,oneriManual,oneriOverrides,anagrafica,condoName:c?.name,savedAt:new Date().toISOString()}));
+  const ok=await driveUpsertFile(`condo_${currentCondoId}.json`, JSON.stringify({
+    txs, deadlines, debiti, propPayments, proprietari,
+    oneriManual, oneriOverrides, anagrafica,
+    rateDebito, auditLogs,
+    condoName: c?.name,
+    savedAt: new Date().toISOString()
+  }));
   const t=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   if(ok){ setDriveStatus('connected',`Salvato ${t}`); if(manual) showToast('✓ Salvato su Drive'); }
   else { setDriveStatus('error','Errore salvataggio'); if(manual) showToast('Errore salvataggio Drive'); }
@@ -5035,7 +5045,7 @@ async function driveLoadData(condoId, silent=false){
 
     // ── MERGE LOGIC ──
     // Load current local data for this condo
-    let localTxs=[], localDebiti=[], localProp=[], localDeadlines=[], localAnag=[], localOneri=[], localOverrides={};
+    let localTxs=[], localDebiti=[], localProp=[], localDeadlines=[], localAnag=[], localOneri=[], localOverrides={}, localRate=[], localAudit=[];
     try{ localTxs=JSON.parse(localStorage.getItem('condo_'+condoId+'_txs'))||[]; }catch(e){}
     try{ localDebiti=JSON.parse(localStorage.getItem('condo_'+condoId+'_debiti'))||[]; }catch(e){}
     try{ localProp=JSON.parse(localStorage.getItem('condo_'+condoId+'_prop'))||[]; }catch(e){}
@@ -5043,6 +5053,8 @@ async function driveLoadData(condoId, silent=false){
     try{ localAnag=JSON.parse(localStorage.getItem('condo_'+condoId+'_anagrafica'))||[]; }catch(e){}
     try{ localOneri=JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_manual'))||[]; }catch(e){}
     try{ localOverrides=JSON.parse(localStorage.getItem('condo_'+condoId+'_oneri_overrides'))||{}; }catch(e){}
+    try{ localRate=JSON.parse(localStorage.getItem('condo_'+condoId+'_rate_debito'))||[]; }catch(e){}
+    try{ localAudit=JSON.parse(localStorage.getItem('condo_'+condoId+'_audit'))||[]; }catch(e){}
 
     // Merge arrays by ID: local items not in Drive take priority (they are newer)
     function mergeById(driveArr, localArr){
@@ -5070,6 +5082,12 @@ async function driveLoadData(condoId, silent=false){
       return {...(driveObj||{}), ...(localObj||{})};
     }
 
+    // Merge audit logs — union by id, sort by timestamp
+    function mergeAuditLogs(driveArr, localArr){
+      const merged = mergeById(driveArr, localArr);
+      return merged.sort((a,b)=>(a.ts||'').localeCompare(b.ts||''));
+    }
+
     txs          = mergeById(data.txs, localTxs);
     deadlines    = mergeById(data.deadlines||[], localDeadlines);
     debiti       = mergeDebiti(data.debiti||[], localDebiti);
@@ -5078,21 +5096,27 @@ async function driveLoadData(condoId, silent=false){
     oneriManual  = mergeById(data.oneriManual||[], localOneri);
     oneriOverrides = mergeOverrides(data.oneriOverrides||{}, localOverrides);
     anagrafica   = mergeById(data.anagrafica||[], localAnag);
+    rateDebito   = mergeById(data.rateDebito||[], localRate);
+    auditLogs    = mergeAuditLogs(data.auditLogs||[], localAudit);
 
     // Persist merged data to localStorage
-    localStorage.setItem('condo_'+condoId+'_txs',           JSON.stringify(txs));
-    localStorage.setItem('condo_'+condoId+'_deadlines',      JSON.stringify(deadlines));
-    localStorage.setItem('condo_'+condoId+'_debiti',         JSON.stringify(debiti));
-    localStorage.setItem('condo_'+condoId+'_prop',           JSON.stringify(propPayments));
-    localStorage.setItem('condo_'+condoId+'_proprietari',    JSON.stringify(proprietari));
-    localStorage.setItem('condo_'+condoId+'_anagrafica',     JSON.stringify(anagrafica));
-    localStorage.setItem('condo_'+condoId+'_oneri_manual',   JSON.stringify(oneriManual));
-    localStorage.setItem('condo_'+condoId+'_oneri_overrides',JSON.stringify(oneriOverrides));
+    // Cache su localStorage (Drive è la fonte primaria)
+    localStorage.setItem('condo_'+condoId+'_txs',            JSON.stringify(txs));
+    localStorage.setItem('condo_'+condoId+'_deadlines',       JSON.stringify(deadlines));
+    localStorage.setItem('condo_'+condoId+'_debiti',          JSON.stringify(debiti));
+    localStorage.setItem('condo_'+condoId+'_prop',            JSON.stringify(propPayments));
+    localStorage.setItem('condo_'+condoId+'_proprietari',     JSON.stringify(proprietari));
+    localStorage.setItem('condo_'+condoId+'_anagrafica',      JSON.stringify(anagrafica));
+    localStorage.setItem('condo_'+condoId+'_oneri_manual',    JSON.stringify(oneriManual));
+    localStorage.setItem('condo_'+condoId+'_oneri_overrides', JSON.stringify(oneriOverrides));
+    localStorage.setItem('condo_'+condoId+'_rate_debito',     JSON.stringify(rateDebito));
+    localStorage.setItem('condo_'+condoId+'_audit',           JSON.stringify(auditLogs));
 
     // Save merged data back to Drive so it's in sync
     await driveUpsertFile(`condo_${condoId}.json`, JSON.stringify({
       txs, deadlines, debiti, propPayments, proprietari,
       oneriManual, oneriOverrides, anagrafica,
+      rateDebito, auditLogs,
       condoName: condos.find(c=>c.id===condoId)?.name,
       savedAt: new Date().toISOString()
     }));
@@ -5903,6 +5927,472 @@ function exportReportFinExcel(){
   _xlsxSave(wb,'SituazioneFinanziaria');
 }
 
+
+// ══════════════════════════════════════════════════
+// RATE DEBITO — Fonte dati: Google Drive
+// ══════════════════════════════════════════════════
+
+function uid_rate(){
+  return 'r_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
+}
+
+// Genera N rate da config e le aggiunge a rateDebito[]
+function generateRate(voceId, config){
+  const {nRate, importoRata, primaScadenza, frequenza, aCarico, soggettoTenutoId} = config;
+  const voce = debiti.find(x=>x.id===voceId);
+  if(!voce){ showToast('Voce debitoria non trovata'); return []; }
+
+  // Check if rates already exist for this voce
+  const existing = rateDebito.filter(r=>r.voceDebitoriaId===voceId && !r.deletedAt);
+  if(existing.length > 0){
+    if(!confirm(`Esistono già ${existing.length} rate per questa voce. Aggiungere altre ${nRate} rate?`)) return [];
+  }
+
+  const oggi = new Date().toISOString().split('T')[0];
+  const newRate = [];
+
+  for(let i=0; i<nRate; i++){
+    const scadenza = addMonths(primaScadenza, i, frequenza);
+    const isScaduta = scadenza < oggi;
+    newRate.push({
+      id: uid_rate(),
+      voceDebitoriaId: voceId,
+      numeroRata: (existing.length + i + 1),
+      dataScadenza: scadenza,
+      importo: parseFloat(importoRata),
+      soggettoTenutoId: soggettoTenutoId || null,
+      tipoSoggetto: aCarico || 'DA_DEFINIRE',
+      stato: isScaduta ? 'SCADUTA' : 'DA_PAGARE',
+      pagamentoDebitoId: null,
+      onereInquilinoId: null,
+      note: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null
+    });
+  }
+
+  rateDebito.push(...newRate);
+  addAudit('rateDebito', voceId, 'generate', 'nRate', 0, nRate);
+  save(); // Salva su Drive via driveSaveData
+  showToast(`✓ Generate ${nRate} rate per "${voce.desc}"`);
+  return newRate;
+}
+
+// Calcola data scadenza aggiungendo mesi in base alla frequenza
+function addMonths(baseDate, index, frequenza){
+  const freq = {mensile:1, bimestrale:2, trimestrale:3, semestrale:6, annuale:12};
+  const months = (freq[frequenza] || 1) * index;
+  const d = new Date(baseDate);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split('T')[0];
+}
+
+// Salva/aggiorna una singola rata (upsert)
+function saveRataDebito(rata){
+  rata.updatedAt = new Date().toISOString();
+  const idx = rateDebito.findIndex(r=>r.id===rata.id);
+  if(idx !== -1){
+    const old = {...rateDebito[idx]};
+    rateDebito[idx] = rata;
+    // Audit changed fields
+    ['stato','importo','dataScadenza','tipoSoggetto','soggettoTenutoId','note'].forEach(f=>{
+      if(old[f] !== rata[f]) addAudit('rataDebito', rata.id, 'update', f, old[f], rata[f]);
+    });
+  } else {
+    rata.createdAt = rata.createdAt || new Date().toISOString();
+    rateDebito.push(rata);
+    addAudit('rataDebito', rata.id, 'create', '', '', JSON.stringify(rata));
+  }
+  save(); // Drive è fonte primaria
+}
+
+// Soft delete una rata
+function deleteRataDebito(id){
+  const r = rateDebito.find(x=>x.id===id);
+  if(!r){ showToast('Rata non trovata'); return; }
+  if(!confirm(`Eliminare la rata n.${r.numeroRata} del ${fmtDate(r.dataScadenza)} (${fmt(r.importo)})?`)) return;
+  r.deletedAt = new Date().toISOString();
+  r.updatedAt = new Date().toISOString();
+  addAudit('rataDebito', id, 'delete', 'deletedAt', null, r.deletedAt);
+  save();
+  showToast('Rata eliminata');
+  renderOneri();
+}
+
+// Aggiorna stato rate scadute automaticamente (chiamata all'avvio)
+function aggiornaRateScadute(){
+  const oggi = new Date().toISOString().split('T')[0];
+  let updated = 0;
+  rateDebito.forEach(r=>{
+    if(!r.deletedAt && r.stato==='DA_PAGARE' && r.dataScadenza < oggi){
+      r.stato = 'SCADUTA';
+      r.updatedAt = new Date().toISOString();
+      updated++;
+    }
+  });
+  if(updated > 0){ save(); }
+}
+
+// ══════════════════════════════════════════════════
+// MIGRAZIONE localStorage → Google Drive
+// ══════════════════════════════════════════════════
+
+async function migrateLocalToDrive(){
+  if(!driveAccessToken){
+    showToast('Connetti Google Drive prima di migrare');
+    return;
+  }
+  if(!currentCondoId){
+    showToast('Seleziona un condominio prima di migrare');
+    return;
+  }
+
+  // Leggi auditLogs da localStorage (potrebbero non essere ancora su Drive)
+  let localAudit = [];
+  try{ localAudit = JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_audit'))||[]; }catch(e){}
+
+  if(!localAudit.length){
+    showToast('Nessun dato locale da migrare');
+    return;
+  }
+
+  const confirm1 = confirm(
+    `Trovati ${localAudit.length} log di audit in localStorage.\n` +
+    `Vuoi migrarli su Google Drive?\n\n` +
+    `I dati locali NON verranno cancellati automaticamente.`
+  );
+  if(!confirm1) return;
+
+  // Merge con auditLogs già in memoria
+  const merged = mergeById_standalone(auditLogs, localAudit);
+  auditLogs = merged.sort((a,b)=>(a.ts||'').localeCompare(b.ts||''));
+
+  // Salva su Drive
+  setDriveStatus('syncing','Migrazione in corso...');
+  try{
+    const ok = await driveSaveData(false);
+    if(ok !== false){
+      setDriveStatus('connected','Migrazione completata');
+      showToast(`✓ ${localAudit.length} log migrati su Drive`);
+      // Marca come migrati (non cancella)
+      localStorage.setItem('condo_'+currentCondoId+'_audit_migrated', new Date().toISOString());
+    } else {
+      setDriveStatus('error','Errore migrazione');
+      showToast('Errore durante la migrazione — dati locali intatti');
+    }
+  } catch(e){
+    setDriveStatus('error','Errore migrazione');
+    showToast('Errore: '+e.message);
+  }
+}
+
+function mergeById_standalone(arr1, arr2){
+  const merged = [...(arr1||[])];
+  (arr2||[]).forEach(item=>{
+    if(!merged.find(x=>x.id===item.id)) merged.push(item);
+  });
+  return merged;
+}
+
+// ══════════════════════════════════════════════════
+// AUDIT LOG (aggiornato — Drive come fonte primaria)
+// ══════════════════════════════════════════════════
+
+function addAudit(entita, entitaId, azione, campo, oldVal, newVal){
+  if(!Array.isArray(auditLogs)) auditLogs = [];
+  auditLogs.push({
+    id: 'a_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,5),
+    entita, entitaId, azione, campo,
+    old: oldVal != null ? String(oldVal) : '',
+    new: newVal != null ? String(newVal) : '',
+    ts: new Date().toISOString()
+  });
+  // Keep last 1000 entries
+  if(auditLogs.length > 1000) auditLogs = auditLogs.slice(-1000);
+  // Cache locale (Drive aggiornato via save())
+  if(currentCondoId){
+    try{ localStorage.setItem('condo_'+currentCondoId+'_audit', JSON.stringify(auditLogs)); }catch(e){}
+  }
+}
+
+
+
+// ══════════════════════════════════════════════════
+// UI — GENERA PIANO RATE
+// ══════════════════════════════════════════════════
+
+function openGeneraRateModal(voceId){
+  const voce = debiti.find(x=>x.id===voceId);
+  if(!voce){ showToast('Voce non trovata'); return; }
+  document.getElementById('gr-voce-id').value = voceId;
+  document.getElementById('genera-rate-voce-info').textContent =
+    voce.desc + ' — Totale: ' + fmt(voce.total);
+  document.getElementById('gr-n-rate').value = '';
+  document.getElementById('gr-importo-rata').value = '';
+  document.getElementById('gr-prima-scadenza').value = '';
+  document.getElementById('gr-frequenza').value = 'mensile';
+  document.getElementById('gr-a-carico').value = 'INQUILINO';
+  document.getElementById('gr-soggetto').value = '';
+  document.getElementById('gr-anteprima').style.display = 'none';
+  // Populate soggetto datalist
+  const dl = document.getElementById('gr-sogg-list');
+  const nomi = anagrafica.map(a=>a.nome).concat(proprietari);
+  dl.innerHTML = [...new Set(nomi)].map(n=>`<option value="${n}">`).join('');
+  document.getElementById('modal-genera-rate').classList.add('open');
+}
+
+function aggiornaAnteprimaRate(){
+  const nRate = parseInt(document.getElementById('gr-n-rate').value);
+  const importoRata = parseFloat(document.getElementById('gr-importo-rata').value);
+  const prima = document.getElementById('gr-prima-scadenza').value;
+  const freq = document.getElementById('gr-frequenza').value;
+  const aCarico = document.getElementById('gr-a-carico').value;
+  if(!nRate||!importoRata||!prima){ showToast('Compila tutti i campi obbligatori'); return; }
+  const preview = [];
+  for(let i=0; i<Math.min(nRate,5); i++){
+    const scad = addMonths(prima, i, freq);
+    preview.push(`Rata ${i+1}: ${fmtDate(scad)} — ${fmt(importoRata)} — ${aCarico}`);
+  }
+  if(nRate>5) preview.push(`... e altre ${nRate-5} rate`);
+  const el = document.getElementById('gr-anteprima');
+  el.style.display = 'block';
+  el.innerHTML = '<strong>Anteprima:</strong><br>' + preview.join('<br>') +
+    `<br><strong>Totale generato: ${fmt(nRate*importoRata)}</strong>`;
+}
+
+function confermaGeneraRate(){
+  const voceId = document.getElementById('gr-voce-id').value;
+  const nRate = parseInt(document.getElementById('gr-n-rate').value);
+  const importoRata = parseFloat(document.getElementById('gr-importo-rata').value);
+  const prima = document.getElementById('gr-prima-scadenza').value;
+  const freq = document.getElementById('gr-frequenza').value;
+  const aCarico = document.getElementById('gr-a-carico').value;
+  const soggetto = document.getElementById('gr-soggetto').value.trim();
+  if(!nRate||nRate<1||nRate>60){ showToast('Numero rate non valido (1-60)'); return; }
+  if(!importoRata||importoRata<=0){ showToast('Importo rata non valido'); return; }
+  if(!prima){ showToast('Inserisci la prima scadenza'); return; }
+  const rate = generateRate(voceId, {nRate, importoRata, primaScadenza:prima, frequenza:freq, aCarico, soggettoTenutoId:soggetto||null});
+  if(rate.length > 0){
+    closeModal('modal-genera-rate');
+    navigate('oneri');
+  }
+}
+
+function openModificaRataModal(rataId){
+  const r = rateDebito.find(x=>x.id===rataId);
+  if(!r){ showToast('Rata non trovata'); return; }
+  const voce = debiti.find(x=>x.id===r.voceDebitoriaId);
+  document.getElementById('mr-id').value = r.id;
+  document.getElementById('mr-voce-info').textContent = (voce?.desc||'') + ' — Rata n.' + r.numeroRata;
+  document.getElementById('mr-numero').value = r.numeroRata;
+  document.getElementById('mr-scadenza').value = r.dataScadenza;
+  document.getElementById('mr-importo').value = r.importo;
+  document.getElementById('mr-tipo-soggetto').value = r.tipoSoggetto||'DA_DEFINIRE';
+  document.getElementById('mr-soggetto').value = r.soggettoTenutoId||'';
+  document.getElementById('mr-stato').value = r.stato||'DA_PAGARE';
+  document.getElementById('mr-note').value = r.note||'';
+  const dl = document.getElementById('mr-sogg-list');
+  const nomi = anagrafica.map(a=>a.nome).concat(proprietari);
+  dl.innerHTML = [...new Set(nomi)].map(n=>`<option value="${n}">`).join('');
+  document.getElementById('modal-modifica-rata').classList.add('open');
+}
+
+function salvaModificaRata(){
+  const id = document.getElementById('mr-id').value;
+  const r = rateDebito.find(x=>x.id===id);
+  if(!r){ showToast('Rata non trovata'); return; }
+  r.dataScadenza = document.getElementById('mr-scadenza').value;
+  r.importo = parseFloat(document.getElementById('mr-importo').value);
+  r.tipoSoggetto = document.getElementById('mr-tipo-soggetto').value;
+  r.soggettoTenutoId = document.getElementById('mr-soggetto').value.trim()||null;
+  r.stato = document.getElementById('mr-stato').value;
+  r.note = document.getElementById('mr-note').value.trim();
+  if(!r.dataScadenza||!r.importo){ showToast('Compila data e importo'); return; }
+  saveRataDebito(r);
+  closeModal('modal-modifica-rata');
+  showToast('Rata aggiornata ✓');
+  renderOneri();
+}
+
+// ══════════════════════════════════════════════════
+// RIPARTO SPESE — renderOneri riscritta
+// Legge rateDebito[] (Drive) + oneriManual[] fallback
+// ══════════════════════════════════════════════════
+
+function renderOneri(){
+  const el = document.getElementById('oneri-content');
+  if(!el) return;
+
+  // Aggiorna rate scadute
+  aggiornaRateScadute();
+
+  const statoInfo = {
+    PAGATA:       {label:'✓ Pagata',       color:'var(--green)', bg:'var(--green-bg)'},
+    DA_PAGARE:    {label:'⏳ Da pagare',    color:'var(--blue)',  bg:'var(--blue-bg)'},
+    SCADUTA:      {label:'🔴 Scaduta',      color:'var(--red)',   bg:'var(--red-bg)'},
+    PARZIALE:     {label:'◑ Parziale',      color:'var(--amber)', bg:'var(--amber-bg)'},
+    DA_VERIFICARE:{label:'❓ Da verificare', color:'var(--text-3)',bg:'var(--surface2)'},
+  };
+
+  const catLbl = {'condominio_ord':'Quote condominiali','riscaldamento':'Riscaldamento','condominio':'Quote condominiali','tari_cond':'TARI','acqua_cond':'Acqua','altro':'Altro'};
+  const catIcon= {'condominio_ord':'🏛','riscaldamento':'🔥','condominio':'🏛','tari_cond':'🗑','acqua_cond':'💧','altro':'📋'};
+
+  // ── Sezione 1: Rate da rateDebito[] (fonte Drive) ──
+  const rateAttive = rateDebito.filter(r=>!r.deletedAt);
+
+  // ── Sezione 2: oneriManual[] (fallback per voci non collegate a rate) ──
+  const manualItems = oneriManual.map(m=>({
+    id:m.id, source:'manual', year:m.anno||m.year||currentYear,
+    cat:m.cat, catLabel:catLbl[m.cat]||m.cat, catIcon:catIcon[m.cat]||'📋',
+    desc:m.desc||m.cat, importo:+(m.importo||0),
+    stato:({riscosso:'PAGATA',da_riscuotere:'DA_PAGARE',parziale:'PARZIALE',a_carico_proprietari:'PAGATA',stornato:'PAGATA'}[m.stato]||'DA_PAGARE'),
+    soggetto:m.inquilino||'',
+    tipoSoggetto: isProprietario(m.inquilino||'')?'PROPRIETARIO':'INQUILINO',
+  }));
+
+  // Stats globali
+  const totDaPagare = rateAttive.filter(r=>['DA_PAGARE','SCADUTA','PARZIALE'].includes(r.stato)).reduce((s,r)=>s+r.importo,0);
+  const totPagato   = rateAttive.filter(r=>r.stato==='PAGATA').reduce((s,r)=>s+r.importo,0);
+  const totManDaPag = manualItems.filter(m=>m.stato!=='PAGATA').reduce((s,m)=>s+m.importo,0);
+
+  // Group rate by year → voce debitoria
+  const byYear = {};
+  rateAttive.forEach(r=>{
+    const voce = debiti.find(x=>x.id===r.voceDebitoriaId);
+    if(!voce) return;
+    const y = voce.year || r.dataScadenza?.slice(0,4) || '—';
+    const vk = voce.id;
+    if(!byYear[y]) byYear[y] = {};
+    if(!byYear[y][vk]) byYear[y][vk] = {voce, rates:[]};
+    byYear[y][vk].rates.push(r);
+  });
+
+  // Add manual items to byYear
+  manualItems.forEach(m=>{
+    const y = m.year||'—';
+    const vk = 'manual_'+m.id;
+    if(!byYear[y]) byYear[y] = {};
+    byYear[y][vk] = {voce:null, manual:m, rates:[]};
+  });
+
+  let html = `<div class="stats-grid" style="margin-bottom:20px;">
+    <div class="stat-card"><div class="stat-label">Da pagare / Scadute</div><div class="stat-value red">${fmt(totDaPagare+totManDaPag)}</div><div class="stat-delta">${rateAttive.filter(r=>r.stato!=='PAGATA').length} rate aperte</div></div>
+    <div class="stat-card"><div class="stat-label">Pagato</div><div class="stat-value green">${fmt(totPagato)}</div><div class="stat-delta">${rateAttive.filter(r=>r.stato==='PAGATA').length} rate</div></div>
+    <div class="stat-card"><div class="stat-label">Rate totali</div><div class="stat-value blue">${rateAttive.length}</div><div class="stat-delta">in ${Object.keys(byYear).length} anni</div></div>
+  </div>`;
+
+  if(!rateAttive.length && !manualItems.length){
+    html += `<div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <h3>Nessun piano rate</h3>
+      <p>Vai su <strong>Debiti condominio</strong>, clicca su una voce e usa "📋 Genera piano rate" per creare il calendario pagamenti.</p>
+    </div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  Object.keys(byYear).sort((a,b)=>b.localeCompare(a)).forEach(year=>{
+    const yearVoci = Object.values(byYear[year]);
+    const yearRates = yearVoci.flatMap(v=>v.rates);
+    const yearDaPag = yearRates.filter(r=>r.stato!=='PAGATA').reduce((s,r)=>s+r.importo,0);
+    const yearPag   = yearRates.filter(r=>r.stato==='PAGATA').reduce((s,r)=>s+r.importo,0);
+
+    html += `<div style="margin-bottom:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--border);">
+        <div style="font-size:18px;font-weight:600;">📅 ${year}</div>
+        <div style="display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text-3);">
+          <span style="color:var(--green);">✓ ${fmt(yearPag)}</span>
+          <span style="color:var(--red);">⏳ ${fmt(yearDaPag)}</span>
+        </div>
+      </div>`;
+
+    Object.entries(byYear[year]).forEach(([vk, {voce, manual, rates}])=>{
+      if(manual){
+        // Manual item (no rates)
+        const si = statoInfo[manual.stato]||statoInfo['DA_PAGARE'];
+        html += `<div style="margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">${manual.catIcon}</span>
+          <div style="flex:1"><div style="font-size:13px;font-weight:500;">${manual.desc}</div>
+            <div style="font-size:11px;color:var(--text-3);">${manual.soggetto||''} · Voce manuale</div></div>
+          <span style="font-family:'DM Mono',monospace;font-weight:500;">${fmt(manual.importo)}</span>
+          <span style="font-size:11px;padding:3px 8px;border-radius:10px;background:${si.bg};color:${si.color};font-weight:600;">${si.label}</span>
+        </div>`;
+        return;
+      }
+
+      const cat = voce.cat;
+      const voceDaPag = rates.filter(r=>r.stato!=='PAGATA').reduce((s,r)=>s+r.importo,0);
+      const vocePag   = rates.filter(r=>r.stato==='PAGATA').reduce((s,r)=>s+r.importo,0);
+      const pct = (vocePag+voceDaPag)>0 ? Math.round(vocePag/(vocePag+voceDaPag)*100) : 0;
+
+      html += `<div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--surface2);border-radius:var(--radius-sm) var(--radius-sm) 0 0;border:1px solid var(--border);border-bottom:none;cursor:pointer;"
+             onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span style="font-size:13px;font-weight:600;">${catIcon[cat]||'📋'} ${voce.desc}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:12px;color:var(--text-3);">${rates.length} rate · <span style="color:var(--green);">${fmt(vocePag)}</span> / <span style="color:var(--red);">${fmt(voceDaPag)}</span></span>
+            <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${pct===100?'var(--green)':'var(--amber)'};border-radius:2px;"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-3);">${pct}%</span>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:0 0 var(--radius-sm) var(--radius-sm);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="background:var(--surface2);">
+              <th style="padding:7px 12px;text-align:left;font-weight:600;color:var(--text-3);width:32px;">#</th>
+              <th style="padding:7px 12px;text-align:left;font-weight:600;color:var(--text-3);">Scadenza</th>
+              <th style="padding:7px 12px;text-align:left;font-weight:600;color:var(--text-3);">Soggetto</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:600;color:var(--text-3);">Importo</th>
+              <th style="padding:7px 12px;text-align:center;font-weight:600;color:var(--text-3);">Stato</th>
+              <th style="padding:7px 12px;text-align:center;font-weight:600;color:var(--text-3);">Azioni</th>
+            </tr></thead>
+            <tbody>
+              ${rates.sort((a,b)=>a.dataScadenza.localeCompare(b.dataScadenza)).map(r=>{
+                const si = statoInfo[r.stato]||statoInfo['DA_PAGARE'];
+                return `<tr style="border-bottom:1px solid var(--border);background:var(--surface);" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
+                  <td style="padding:9px 12px;color:var(--text-3);">${r.numeroRata}</td>
+                  <td style="padding:9px 12px;font-weight:500;">${fmtDate(r.dataScadenza)}</td>
+                  <td style="padding:9px 12px;color:var(--text-2);">${r.soggettoTenutoId||r.tipoSoggetto||'—'}</td>
+                  <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;font-weight:500;">${fmt(r.importo)}</td>
+                  <td style="padding:9px 12px;text-align:center;">
+                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${si.bg};color:${si.color};cursor:pointer;white-space:nowrap;"
+                          onclick="toggleStatoRata('${r.id}')">${si.label}</span>
+                  </td>
+                  <td style="padding:9px 12px;text-align:center;">
+                    <div style="display:flex;gap:4px;justify-content:center;">
+                      <button class="btn-icon" onclick="openModificaRataModal('${r.id}')" title="Modifica">✎</button>
+                      <button class="btn-icon" style="color:var(--red);border-color:var(--red-light);" onclick="deleteRataDebito('${r.id}')" title="Elimina">✕</button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div style="padding:8px 14px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:var(--text-3);">${rates.length} rate · totale ${fmt(rates.reduce((s,r)=>s+r.importo,0))}</span>
+            <button class="btn btn-ghost btn-xs" onclick="openGeneraRateModal('${voce.id}')">+ Aggiungi rate</button>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += '</div>'; // /year
+  });
+
+  el.innerHTML = html;
+}
+
+// Toggle rapido stato rata (DA_PAGARE ↔ PAGATA)
+function toggleStatoRata(rataId){
+  const r = rateDebito.find(x=>x.id===rataId);
+  if(!r) return;
+  r.stato = r.stato==='PAGATA' ? 'DA_PAGARE' : 'PAGATA';
+  saveRataDebito(r);
+  renderOneri();
+}
+
 // ══ MOBILE NAVIGATION ══
 function toggleSidebar(){
   const sidebar = document.getElementById('sidebar');
@@ -5957,5 +6447,111 @@ try{
 }catch(e){}
 renderHome();
 </script>
+
+<!-- MODAL: Genera piano rate -->
+<div class="modal-overlay" id="modal-genera-rate">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📋 Genera piano rate</div>
+      <button class="modal-close" onclick="closeModal('modal-genera-rate')">✕</button>
+    </div>
+    <div id="genera-rate-voce-info" style="padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;color:var(--text-2);"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Numero rate *</label>
+        <input type="number" id="gr-n-rate" min="1" max="60" placeholder="Es. 6">
+      </div>
+      <div class="form-group"><label>Importo per rata (€) *</label>
+        <div class="input-group"><span class="input-prefix">€</span>
+          <input type="number" id="gr-importo-rata" step="0.01" min="0" placeholder="0,00">
+        </div>
+      </div>
+      <div class="form-group"><label>Prima scadenza *</label>
+        <input type="date" id="gr-prima-scadenza">
+      </div>
+      <div class="form-group"><label>Frequenza</label>
+        <select id="gr-frequenza">
+          <option value="mensile">Mensile</option>
+          <option value="bimestrale">Bimestrale</option>
+          <option value="trimestrale">Trimestrale</option>
+          <option value="semestrale">Semestrale</option>
+          <option value="annuale">Annuale</option>
+        </select>
+      </div>
+      <div class="form-group"><label>A carico di</label>
+        <select id="gr-a-carico">
+          <option value="INQUILINO">🏠 Inquilino</option>
+          <option value="PROPRIETARIO">🔑 Proprietario</option>
+          <option value="MISTO">⇄ Misto</option>
+          <option value="DA_DEFINIRE">❓ Da definire</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Soggetto specifico (opzionale)</label>
+        <input type="text" id="gr-soggetto" list="gr-sogg-list" placeholder="Es. Turiaco Gabriele" autocomplete="off">
+        <datalist id="gr-sogg-list"></datalist>
+      </div>
+    </div>
+    <div id="gr-anteprima" style="margin-top:14px;padding:12px;background:var(--blue-bg);border-radius:var(--radius-sm);font-size:12px;color:var(--blue);display:none;"></div>
+    <input type="hidden" id="gr-voce-id">
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-genera-rate')">Annulla</button>
+      <button class="btn btn-ghost" onclick="aggiornaAnteprimaRate()">👁 Anteprima</button>
+      <button class="btn btn-primary" onclick="confermaGeneraRate()">✓ Genera rate</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Modifica rata -->
+<div class="modal-overlay" id="modal-modifica-rata">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✎ Modifica rata</div>
+      <button class="modal-close" onclick="closeModal('modal-modifica-rata')">✕</button>
+    </div>
+    <div id="mr-voce-info" style="padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px;color:var(--text-2);"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>N. rata</label>
+        <input type="number" id="mr-numero" min="1" readonly style="opacity:.6;">
+      </div>
+      <div class="form-group"><label>Data scadenza *</label>
+        <input type="date" id="mr-scadenza">
+      </div>
+      <div class="form-group"><label>Importo (€) *</label>
+        <div class="input-group"><span class="input-prefix">€</span>
+          <input type="number" id="mr-importo" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="form-group"><label>Tipo soggetto</label>
+        <select id="mr-tipo-soggetto">
+          <option value="INQUILINO">🏠 Inquilino</option>
+          <option value="PROPRIETARIO">🔑 Proprietario</option>
+          <option value="MISTO">⇄ Misto</option>
+          <option value="DA_DEFINIRE">❓ Da definire</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Soggetto tenuto</label>
+        <input type="text" id="mr-soggetto" list="mr-sogg-list" autocomplete="off">
+        <datalist id="mr-sogg-list"></datalist>
+      </div>
+      <div class="form-group"><label>Stato</label>
+        <select id="mr-stato">
+          <option value="DA_PAGARE">⏳ Da pagare</option>
+          <option value="PARZIALE">◑ Parziale</option>
+          <option value="PAGATA">✓ Pagata</option>
+          <option value="SCADUTA">🔴 Scaduta</option>
+          <option value="DA_VERIFICARE">❓ Da verificare</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Note</label>
+        <input type="text" id="mr-note" placeholder="Annotazioni sulla rata">
+      </div>
+    </div>
+    <input type="hidden" id="mr-id">
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-modifica-rata')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaModificaRata()">Salva</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
