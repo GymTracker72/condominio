@@ -1991,7 +1991,7 @@ textarea{resize:vertical;min-height:70px;}
 <div class="toast" id="toast"></div>
 
 <script>
-const APP_VERSION = '2026-06-25 19:58 — autoRate-v2';
+const APP_VERSION = '2026-06-25 20:10 — fix-rateDebito-scope';
 // ══ CONSTANTS ══
 // Global file viewer cache - avoids base64 in HTML attributes
 const _fileCache = {};
@@ -2057,6 +2057,7 @@ let proprietari = [];      // [string] nomi auto-popolati
 let currentCondoId = null; // id condominio attivo
 let txs = [];
 let deadlines = [];
+let rateDebito = [];       // [{id,voceDebitoriaId,numeroRata,dataScadenza,importo,stato,...}]
 let currentType = 'entrata';
 let selectedFile = null;
 let selectedFileData = null;
