@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0" viewport-fit=cover">
-<title>Gestione Condomini v2.1</title>
+<title>Gestione Condomini v2.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer onload="onGsiLoaded()"></script>
@@ -790,8 +790,7 @@ textarea{resize:vertical;min-height:70px;}
         <div><div class="page-title">Debiti condominio</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="exportDebitiExcel()">↓ Excel</button>
-          <button class="btn btn-ghost btn-sm" onclick="openImportModal()">📋 Importa estratto conto</button>
-          <button class="btn btn-primary" onclick="openDebtModal()">+ Nuova voce debitoria</button>
+<button class="btn btn-primary" onclick="openDebtModal()">+ Nuova voce debitoria</button>
         </div>
       </div>
       <div class="stats-grid" id="debt-stats"></div>
@@ -1295,30 +1294,687 @@ textarea{resize:vertical;min-height:70px;}
 </div>
 
 
-<!-- MODAL: Importa estratto conto -->
-<div class="modal-overlay" id="modal-import">
-  <div class="modal" style="width:600px;max-width:96vw;">
-    <div class="modal-header">
-      <div class="modal-title">Importa estratto conto — Via Filippo Meda 169</div>
-      <button class="modal-close" onclick="closeModal('modal-import')">✕</button>
+
+
+<!-- ══ APP SCREEN ══ -->
+<div id="app-screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo" onclick="goHome()" title="Tutti i condomini">
+      <div class="sidebar-back">← tutti i condomini</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="sidebar-color-dot" id="sb-color-dot"></div>
+        <div class="sidebar-logo-name" id="sb-name">—</div>
+      </div>
+      <div class="sidebar-logo-addr" id="sb-addr"></div>
     </div>
-    <p style="font-size:13px;color:var(--text-3);margin-bottom:18px;">
-      Estratto conto n. 018000123358 al 30/04/2026 — Condomino Bracony Marcella (Scala A1/18)<br>
-      Seleziona le voci da importare. I pagamenti già effettuati verranno registrati come storici.
-    </p>
-    <div id="import-items-list"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-      <div style="font-size:13px;color:var(--text-2);">
-        Residuo totale selezionato: <strong style="font-family:'DM Mono',monospace;" id="import-residuo-total">€ 0,00</strong>
+    <nav class="sidebar-nav">
+
+      <div class="nav-section">
+        <button class="nav-item active" onclick="navigate('dashboard')"><span class="icon">📊</span><span>Dashboard</span></button>
+        <button class="nav-item" onclick="navigate('scheda')"><span class="icon">🏠</span><span>Scheda Immobile</span></button>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" onclick="closeModal('modal-import')">Annulla</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red-light);" onclick="doResetImport()" title="Cancella tutte le voci importate e reimporta da zero">🔄 Reimposta tutto</button>
-        <button class="btn btn-primary" onclick="doImport()">Importa selezionati</button>
+
+      <div class="nav-section">
+        <div class="nav-label">Contabilità</div>
+        <button class="nav-item" onclick="navigate('entrate')"><span class="icon">↑</span><span>Entrate</span></button>
+        <button class="nav-item" onclick="navigate('uscite')"><span class="icon">↓</span><span>Uscite</span></button>
+        <button class="nav-item" onclick="navigate('tutti')"><span class="icon">≡</span><span>Movimenti</span></button>
+        <button class="nav-item" onclick="navigate('bilancio')"><span class="icon">⚖</span><span>Bilancio</span></button>
       </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Quote</div>
+        <button class="nav-item" onclick="navigate('oneri')"><span class="icon">📋</span><span>Riparto spese</span></button>
+        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">💰</span><span>Versamenti</span></button>
+        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Debiti condominio</span></button>
+        <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenziario</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Anagrafiche</div>
+        <button class="nav-item" onclick="navigate('proprietari_anag')"><span class="icon">🔑</span><span>Proprietari</span></button>
+        <button class="nav-item" onclick="navigate('inquilini_anag')"><span class="icon">🏠</span><span>Inquilini</span></button>
+        <button class="nav-item" onclick="navigate('fornitori_anag')"><span class="icon">🔧</span><span>Fornitori</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Fisco</div>
+        <button class="nav-item" onclick="navigate('report')"><span class="icon">📑</span><span>Report 730</span></button>
+        <button class="nav-item" onclick="navigate('certificazioni')"><span class="icon">📄</span><span>Certificazioni</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Report</div>
+        <button class="nav-item" onclick="navigate('report_finanziario')"><span class="icon">📈</span><span>Situazione finanziaria</span></button>
+        <button class="nav-item" onclick="navigate('morosita')"><span class="icon">🔴</span><span>Insoluti inquilini</span></button>
+      </div>
+
+    </nav>
+    <div class="sidebar-footer">
+      <div class="drive-status" onclick="driveAction(this)" id="drive-status-btn">
+        <div class="drive-dot" id="drive-dot"></div>
+        <div class="drive-label" id="drive-label"><strong>Google Drive</strong>Non connesso</div>
+      </div>
+      <div class="year-badge">Anno fiscale</div>
+      <select class="year-select" id="year-select" onchange="onYearChange(this.value)">
+        <option>2030</option><option>2029</option><option>2028</option><option>2027</option>
+        <option selected>2026</option><option>2025</option><option>2024</option>
+        <option>2023</option><option>2022</option>
+      </select>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div class="page-header">
+        <div><div class="page-title">Dashboard</div><div class="page-subtitle" id="dash-period">Anno 2026</div></div>
+        <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi movimento</button>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:28px;">
+        <div class="card"><div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px;letter-spacing:.04em;text-transform:uppercase;">Ultimi movimenti</div><div class="tx-list" id="dash-recent"></div></div>
+        <div class="card"><div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:16px;letter-spacing:.04em;text-transform:uppercase;">Ripartizione uscite</div><div class="chart-bar-container" id="dash-chart"></div></div>
+      </div>
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:12px;color:var(--text-3);margin-bottom:4px;">Saldo netto anno corrente</div><div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:500;" id="dash-saldo"></div></div><button class="btn btn-ghost btn-sm" onclick="navigate('report')">Vedi report →</button></div></div>
+    </div>
+
+    <!-- ENTRATE -->
+    <div id="view-entrate" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Entrate</div><div class="page-subtitle">Affitti, rimborsi, altri incassi</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportEntrateExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openModal('entrata')">+ Nuova entrata</button></div>
+      </div>
+      <div class="filter-bar" id="filter-entrate"></div>
+      <div class="card"><div class="tx-list" id="list-entrate"></div></div>
+    </div>
+
+    <!-- USCITE -->
+    <div id="view-uscite" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Uscite</div><div class="page-subtitle">Spese, fatture, bonifici al condominio &nbsp;<span style="font-size:11px;background:var(--amber-bg);color:var(--amber);padding:2px 8px;border-radius:10px;font-weight:500;">TARI/acqua/riscaldamento → Oneri condomini</span></div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportUsciteExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openModal('uscita')">+ Nuova uscita</button></div>
+      </div>
+      <div class="filter-bar" id="filter-uscite"></div>
+      <div class="card"><div class="tx-list" id="list-uscite"></div></div>
+    </div>
+
+    <!-- TUTTI -->
+    <div id="view-tutti" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Movimenti</div><div class="page-subtitle">Storico completo</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportXLSX()">📊 Esporta Excel</button>
+          <button class="btn btn-primary" onclick="openModal('entrata')">+ Aggiungi</button>
+        </div>
+      </div>
+      <div class="filter-bar" id="filter-tutti">
+        <button class="filter-chip active" onclick="setFilter('all',this)">Tutti</button>
+        <button class="filter-chip" onclick="setFilter('entrata',this)">Entrate</button>
+        <button class="filter-chip" onclick="setFilter('uscita',this)">Uscite</button>
+        <input class="filter-search" type="text" placeholder="Cerca..." oninput="searchFilter(this.value)">
+      </div>
+      <div class="card"><div class="tx-list" id="list-tutti"></div></div>
+    </div>
+
+    <!-- BILANCIO -->
+    <div id="view-bilancio" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Bilancio</div><div class="page-subtitle" id="bilancio-subtitle">Anno 2026</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportBilancioExcel()">↓ Excel</button><button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button></div>
+      </div>
+      <div id="bilancio-content"></div>
+    </div>
+
+    <!-- ONERI -->
+    <div id="view-oneri" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Riparto spese</div><div class="page-subtitle">Quote condominiali, riscaldamento e voci manuali</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportRipartoExcel()">↓ Excel</button>
+          <button class="btn btn-primary" onclick="openOneriManualModal()">+ Voce manuale</button>
+        </div>
+      </div>
+      <div id="oneri-content"></div>
+    </div>
+
+    <!-- REPORT -->
+    <div id="view-report" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Report 730</div><div class="page-subtitle">Riepilogo fiscale e contabile</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="export730Excel()">↓ Excel</button><button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Stampa</button></div>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);margin-bottom:14px;">Regime fiscale applicato</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button class="regime-btn active" id="btn-cedolare21" onclick="setRegime('cedolare21')"><span style="font-size:15px;font-weight:600;">21%</span><span style="font-size:11px;opacity:.75;display:block;margin-top:2px;">Cedolare secca<br>canone libero</span></button>
+          <button class="regime-btn" id="btn-cedolare10" onclick="setRegime('cedolare10')"><span style="font-size:15px;font-weight:600;">10%</span><span style="font-size:11px;opacity:.75;display:block;margin-top:2px;">Cedolare secca<br>canone concordato</span></button>
+          <button class="regime-btn" id="btn-irpef" onclick="setRegime('irpef')"><span style="font-size:15px;font-weight:600;">IRPEF</span><span style="font-size:11px;opacity:.75;display:block;margin-top:2px;">Regime ordinario<br>scaglioni progressivi</span></button>
+        </div>
+        <div id="regime-info" style="font-size:12px;color:var(--text-3);padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);line-height:1.6;"></div>
+      </div>
+      <div id="report-content"></div>
+    </div>
+
+
+    <!-- ANAGRAFICA -->
+    <div id="view-anagrafica" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Anagrafica</div><div class="page-subtitle">Proprietari e inquilini del condominio</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal()">+ Aggiungi persona</button>
+      </div>
+      <div id="anagrafica-content"></div>
+    </div>
+
+    <!-- DEBITI CONDOMINIO -->
+    <div id="view-debiti" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Debiti condominio</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportDebitiExcel()">↓ Excel</button>
+<button class="btn btn-primary" onclick="openDebtModal()">+ Nuova voce debitoria</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="debt-stats"></div>
+      <div id="debiti-list"></div>
+    </div>
+
+    <!-- PROPRIETARI -->
+    <div id="view-proprietari" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Versamenti</div><div class="page-subtitle">Pagamenti effettuati dai proprietari</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportVersamentiExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openPropModal()">+ Nuovo versamento</button></div>
+      </div>
+      <div id="proprietari-content"></div>
+    </div>
+
+    <!-- SCADENZE -->
+    <div id="view-scadenze" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Scadenziario</div><div class="page-subtitle">Prossimi pagamenti e scadenze</div></div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="exportScadenzarioExcel()">↓ Excel</button><button class="btn btn-primary" onclick="openDeadlineModal()">+ Aggiungi scadenza</button></div>
+      </div>
+      <div class="card" id="scadenze-list"></div>
+    </div>
+    <!-- ══ SCHEDA IMMOBILE ══ -->
+    <div id="view-scheda" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Scheda Immobile</div>
+          <div class="page-subtitle" id="scheda-subtitle">Interno 18 — Via Filippo Meda 169, Roma</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportSchedaPDF()">↓ Stampa PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportSchedaExcel()">↓ Excel</button>
+        </div>
+      </div>
+      <div id="scheda-content"></div>
+    </div>
+
+    <!-- ══ PROPRIETARI ANAG ══ -->
+    <div id="view-proprietari_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Proprietari</div><div class="page-subtitle">Titolari dell'immobile</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'proprietario')">+ Aggiungi proprietario</button>
+      </div>
+      <div id="proprietari-anag-content"></div>
+    </div>
+
+    <!-- ══ INQUILINI ANAG ══ -->
+    <div id="view-inquilini_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Inquilini</div><div class="page-subtitle">Inquilini attivi e storici</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'inquilino')">+ Aggiungi inquilino</button>
+      </div>
+      <div id="inquilini-anag-content"></div>
+    </div>
+
+    <!-- ══ FORNITORI ANAG ══ -->
+    <div id="view-fornitori_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Fornitori & Tecnici</div><div class="page-subtitle">Ditte, artigiani, professionisti</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal(null,'fornitore')">+ Aggiungi fornitore</button>
+      </div>
+      <div id="fornitori-anag-content"></div>
+    </div>
+
+    <!-- ══ MOROSITÀ ══ -->
+    <div id="view-morosita" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Insoluti inquilini</div><div class="page-subtitle">Quote non pagate dagli inquilini — per anno e categoria</div></div>
+        <div class="page-actions"><button class="btn btn-ghost btn-sm" onclick="exportMorositaExcel()">↓ Excel</button></div>
+      </div>
+      <div id="morosita-content"></div>
+    </div>
+
+    <!-- ══ REPORT FINANZIARIO ══ -->
+    <div id="view-report_finanziario" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Situazione finanziaria</div><div class="page-subtitle">Riepilogo completo entrate, uscite e patrimonio</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="exportReportFinExcel()">↓ Excel</button>
+      </div>
+      <div id="report-fin-content"></div>
+    </div>
+
+    <!-- ══ CERTIFICAZIONI ══ -->
+    <div id="view-certificazioni" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Certificazioni</div><div class="page-subtitle">Certificazione Unica, ritenute, documentazione fiscale</div></div>
+      </div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--text-3);">
+        <div style="font-size:36px;margin-bottom:12px;">📄</div>
+        <div style="font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Sezione in arrivo</div>
+        <div style="font-size:13px;">Certificazione Unica e ritenute d'acconto verranno aggiunte nella prossima versione.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: Nuovo/Modifica condominio -->
+<div class="modal-overlay" id="modal-condo">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-condo-title">Nuovo condominio</div>
+      <button class="modal-close" onclick="closeModal('modal-condo')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome condominio</label><input type="text" id="c-name" placeholder="Es. Via Roma 12"></div>
+      <div class="form-group full"><label>Indirizzo</label><input type="text" id="c-addr" placeholder="Es. Via Roma 12, Roma"></div>
+      <div class="form-group full">
+        <label>Colore</label>
+        <div class="color-picker" id="color-picker"></div>
+      </div>
+      <div class="form-group full"><label>Icona</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="icon-picker"></div>
+      </div>
+      <div class="form-group full" style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:10px 12px;border:1px solid rgba(26,74,138,.15);">
+        <div style="font-size:12px;color:var(--blue);">ℹ Gli inquilini si gestiscono nella sezione <strong>Anagrafica</strong></div>
+      </div>
+    </div>
+    <input type="hidden" id="c-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-condo')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveCondo()">Salva</button>
     </div>
   </div>
 </div>
+
+<!-- MODAL: Nuovo movimento -->
+<div class="modal-overlay" id="modal-tx">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-tx-title">Nuovo movimento</div>
+      <button class="modal-close" onclick="closeModal('modal-tx')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Tipo</label>
+        <div class="type-toggle">
+          <button id="btn-entrata" class="active-in" onclick="setType('entrata')">↑ Entrata</button>
+          <button id="btn-uscita" onclick="setType('uscita')">↓ Uscita</button>
+        </div>
+      </div>
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="f-desc" placeholder="Es. Affitto marzo 2026, Fattura idraulico..."></div>
+      <div class="form-group"><label>Importo (€)</label><input type="number" id="f-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="f-date"></div>
+      <div class="form-group"><label>Categoria</label>
+        <select id="f-cat">
+          <option value="affitti">🟢 Affitto</option>
+          <option value="manutenzione">🟡 Manutenzione straord.</option>
+          <option value="condominio">🔵 Quote condominiali (a carico inquilini)</option>
+          <option value="tasse">🔴 Tasse / IMU acconto</option>
+          <option value="tasse_fine_anno">🔴 Tasse fine anno (saldo)</option>
+          <option value="tari_cond">🟠 TARI (a carico condomini)</option>
+          <option value="acqua_cond">🟠 Acqua conguaglio (condomini)</option>
+          <option value="riscaldamento_cond">🟠 Riscaldamento (condomini)</option>
+          <option value="utenze">💡 Utenze</option>
+          <option value="prop_payment">💰 Versamento proprietari</option>
+          <option value="altro">⬜ Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Metodo pagamento</label>
+        <select id="f-method">
+          <option value="bonifico">Bonifico bancario</option>
+          <option value="contanti">Contanti</option>
+          <option value="rid">RID / Addebito diretto</option>
+          <option value="assegno">Assegno</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Controparte (inquilino / ditta)</label><input type="text" id="f-party" placeholder="Es. Mario Rossi, FC Appalti srl..."></div>
+      <div class="form-group full"><label>Note</label><textarea id="f-notes" placeholder="Riferimento fattura, note aggiuntive..."></textarea></div>
+      <div class="form-group full" id="prop-name-group" style="display:none">
+        <label>Proprietario</label>
+        <input type="text" id="f-prop-name" list="f-prop-list" placeholder="Nome proprietario" autocomplete="off">
+        <datalist id="f-prop-list"></datalist>
+      </div>
+      <div class="form-group full">
+        <label>Allegati fino a 5 (foto / PDF)</label>
+        <div class="file-zone" onclick="document.getElementById('f-files').click()">
+          <input type="file" id="f-files" accept="image/*,.pdf" multiple style="display:none" onchange="onFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> fino a 5 file<br><span>JPG, PNG, PDF</span></div>
+        </div>
+        <div class="files-grid" id="file-preview-area"></div>
+      </div>
+    </div>
+    <input type="hidden" id="f-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tx')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveTx()">Salva movimento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Scadenza -->
+<div class="modal-overlay" id="modal-deadline">
+  <div class="modal modal-sm">
+    <div class="modal-header"><div class="modal-title">Nuova scadenza</div><button class="modal-close" onclick="closeModal('modal-deadline')">✕</button></div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="d-desc" placeholder="Es. IMU acconto, Rata assicurazione..."></div>
+      <div class="form-group"><label>Data scadenza</label><input type="date" id="d-date"></div>
+      <div class="form-group"><label>Importo previsto (€)</label><input type="number" id="d-amount" placeholder="0,00" step="0.01"></div>
+      <div class="form-group full"><label>Note</label><input type="text" id="d-notes" placeholder=""></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-deadline')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDeadline()">Salva</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Modifica pagante -->
+<div class="modal-overlay" id="modal-edit-pagante">
+  <div class="modal modal-sm" style="width:360px;">
+    <div class="modal-header">
+      <div class="modal-title">Modifica pagante</div>
+      <button class="modal-close" onclick="closeModal('modal-edit-pagante')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="ep-payment-desc"></div>
+    <div class="form-group">
+      <label>Chi ha pagato</label>
+      <input type="text" id="ep-pagante" list="ep-pagante-list" placeholder="Nome pagante" autocomplete="off">
+      <datalist id="ep-pagante-list"></datalist>
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label>Allegati ricevuta/bonifico (fino a 3)</label>
+      <div class="file-zone" onclick="document.getElementById('ep-files').click()">
+        <input type="file" id="ep-files" accept="image/*,.pdf" multiple style="display:none" onchange="onEpFilesSelect(this)">
+        <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF</div>
+      </div>
+      <div class="files-grid" id="ep-files-preview"></div>
+    </div>
+    <input type="hidden" id="ep-debt-id">
+    <input type="hidden" id="ep-payment-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-pagante')">Annulla</button>
+      <button class="btn btn-primary" onclick="savePaymentPagante()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Anagrafica persona -->
+<div class="modal-overlay" id="modal-anagrafica">
+  <div class="modal" style="width:500px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-anag-title">Aggiungi persona</div>
+      <button class="modal-close" onclick="closeModal('modal-anagrafica')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nome e cognome</label><input type="text" id="an-nome" placeholder="Es. Papini Furio"></div>
+      <div class="form-group full"><label>Ruolo</label>
+        <select id="an-ruolo" onchange="onAnRuoloChange(this.value)">
+          <option value="proprietario">🔑 Proprietario</option>
+          <option value="inquilino">🏠 Inquilino attivo</option>
+          <option value="ex_inquilino">📁 Ex inquilino</option>
+          <option value="condominio">🏢 Condominio</option>
+          <option value="amministratore">👔 Amministratore</option>
+          <option value="fornitore">🔧 Fornitore</option>
+          <option value="tecnico">📐 Tecnico</option>
+          <option value="altro">👤 Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Dal</label><input type="date" id="an-dal"></div>
+      <div class="form-group"><label>Al (vuoto = attivo)</label><input type="date" id="an-al"></div>
+      <div class="form-group full" id="an-pregresso-group" style="display:none;background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
+        <label style="color:var(--amber);">Debito pregresso a carico proprietari (€)</label>
+        <input type="number" id="an-pregresso" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+        <div style="font-size:11px;color:var(--amber);margin-top:5px;">Importo che i proprietari devono coprire per conto di questo ex inquilino</div>
+      </div>
+      <div class="form-group"><label>Telefono</label><input type="text" id="an-tel" placeholder="Es. 333 1234567"></div>
+      <div class="form-group"><label>Email</label><input type="text" id="an-email" placeholder="Es. nome@email.it"></div>
+      <div class="form-group"><label>Codice Fiscale</label><input type="text" id="an-cf" placeholder="RSSMRA80A01H501Z" style="font-family:'DM Mono',monospace;"></div>
+      <div class="form-group full"><label>Indirizzo</label><input type="text" id="an-indirizzo" placeholder="Via, numero civico, città"></div>
+      <div class="form-group full"><label>Note</label><textarea id="an-note" placeholder="Note aggiuntive..."></textarea></div>
+    </div>
+    <input type="hidden" id="an-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-anagrafica')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveAnagrafica()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Voce manuale oneri -->
+<div class="modal-overlay" id="modal-oneri-manual">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-oneri-title">Nuova voce manuale</div>
+      <button class="modal-close" onclick="closeModal('modal-oneri-manual')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="om-desc" placeholder="Es. TARI 2025, Acqua conguaglio..."></div>
+      <div class="form-group full"><label>Categoria</label>
+        <select id="om-cat">
+          <option value="tari_cond">🗑 TARI</option>
+          <option value="acqua_cond">💧 Acqua conguaglio</option>
+          <option value="riscaldamento_cond">🔥 Riscaldamento</option>
+          <option value="condominio">🏛 Quote condominiali</option>
+          <option value="altro">📋 Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Importo (€)</label><input type="number" id="om-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Anno</label>
+        <select id="om-year">
+          <option>2026</option><option>2025</option><option>2024</option><option>2023</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Inquilino / Soggetto</label>
+        <input type="text" id="om-inquilino" list="om-inq-list" placeholder="A carico di..." autocomplete="off">
+        <datalist id="om-inq-list"></datalist>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="om-notes" placeholder=""></div>
+    </div>
+    <input type="hidden" id="om-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-oneri-manual')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOneriManual()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Modifica onere (da debiti o manuale) -->
+<div class="modal-overlay" id="modal-oneri-edit">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Modifica stato onere</div>
+      <button class="modal-close" onclick="closeModal('modal-oneri-edit')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="oe-desc"></div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Stato</label>
+        <select id="oe-stato">
+          <option value="da_riscuotere">⏳ Da riscuotere</option>
+          <option value="riscosso">✓ Riscosso</option>
+          <option value="parziale">◑ Parzialmente riscosso</option>
+          <option value="a_carico_proprietari">🏠 A carico proprietari</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Inquilino / Soggetto</label>
+        <input type="text" id="oe-inquilino" list="oe-inq-list" placeholder="A carico di..." autocomplete="off">
+        <datalist id="oe-inq-list"></datalist>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="oe-notes" placeholder=""></div>
+    </div>
+    <input type="hidden" id="oe-id">
+    <input type="hidden" id="oe-source"> <!-- 'debt' or 'manual' -->
+    <!-- existing files with delete -->
+    <div id="oe-existing-files" style="display:none;margin-top:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);"></div>
+    <!-- new file upload -->
+    <div style="margin-top:14px;">
+      <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;">Aggiungi allegato (ricevuta, bonifico, PDF)</label>
+      <div class="file-zone" onclick="document.getElementById('oe-files-input').click()">
+        <input type="file" id="oe-files-input" accept="image/*,.pdf" multiple style="display:none" onchange="onOneriEditFilesSelect(this)">
+        <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
+      </div>
+      <div id="oe-new-files-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-oneri-edit')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOneriEdit()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Voce debitoria -->
+<div class="modal-overlay" id="modal-debt">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-debt-title">Nuova voce debitoria</div>
+      <button class="modal-close" onclick="closeModal('modal-debt')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Descrizione</label><input type="text" id="db-desc" placeholder="Es. Riscaldamento 2024-2025, Bonifica amianto..."></div>
+      <div class="form-group full"><label>Categoria</label>
+        <select id="db-cat">
+          <option value="riscaldamento">🔥 Riscaldamento</option>
+          <option value="condominio_ord">🏛 Condominio ordinario</option>
+          <option value="lavori_straord">🔧 Lavori straordinari</option>
+          <option value="bonifica">⚠ Bonifica / Amianto</option>
+          <option value="antincendio">🚒 Lavori antincendio</option>
+          <option value="portone">🚪 Sostituzione portone</option>
+          <option value="altro">📋 Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Importo totale dovuto (€)</label><input type="number" id="db-total" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Anno di riferimento</label>
+        <select id="db-year">
+          <option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2026</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="db-notes" placeholder="Es. Rate mensili da €273, scadenza..."></div>
+    </div>
+    <input type="hidden" id="db-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-debt')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDebt()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Pagamento su debito -->
+<div class="modal-overlay" id="modal-debt-pay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Registra pagamento</div>
+      <button class="modal-close" onclick="closeModal('modal-debt-pay')">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:16px;" id="dp-debt-name"></div>
+    <div class="form-group full" style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(26,74,138,.15);margin-bottom:14px;">
+      <label style="color:var(--blue);display:flex;align-items:center;gap:6px;">
+        ✎ Totale dovuto della voce (€) — modifica se l'amministratore ha aggiornato l'importo
+      </label>
+      <input type="number" id="dp-voce-total" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+      <div style="font-size:11px;color:var(--blue);margin-top:5px;" id="dp-voce-total-hint"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Importo pagato (€)</label><input type="number" id="dp-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Data pagamento</label><input type="date" id="dp-date"></div>
+      <div class="form-group"><label>Metodo</label>
+        <select id="dp-method">
+          <option value="bonifico">Bonifico</option>
+          <option value="contanti">Contanti</option>
+          <option value="rid">RID</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Note</label><input type="text" id="dp-notes" placeholder="Es. 1ª rata..."></div>
+      <div class="form-group full">
+        <label>Chi ha pagato</label>
+        <input type="text" id="dp-pagante" list="dp-pagante-list" placeholder="Es. Audino Giovanni, Capano Aurora..." autocomplete="off">
+        <datalist id="dp-pagante-list"></datalist>
+      </div>
+      <div class="form-group full" style="background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
+        <label style="color:var(--amber);">Commissione bancaria/postale (€) — opzionale</label>
+        <input type="number" id="dp-commission" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+        <div style="font-size:11px;color:var(--amber);margin-top:5px;">La commissione viene registrata come uscita separata e NON scala il debito verso il condominio.</div>
+      </div>
+    </div>
+      <div class="form-group full">
+        <label>Allegati ricevuta/bonifico (fino a 3)</label>
+        <div class="file-zone" onclick="document.getElementById('dp-files').click()">
+          <input type="file" id="dp-files" accept="image/*,.pdf" multiple style="display:none" onchange="onDebtFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> foto o PDF<br><span>JPG, PNG, PDF</span></div>
+        </div>
+        <div class="files-grid" id="dp-files-preview"></div>
+      </div>
+    </input>
+    <input type="hidden" id="dp-debt-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-debt-pay')">Annulla</button>
+      <button class="btn btn-primary" onclick="saveDebtPayment()">Registra e crea uscita</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Versamento proprietario -->
+<div class="modal-overlay" id="modal-prop">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-prop-title">Nuovo versamento proprietario</div>
+      <button class="modal-close" onclick="closeModal('modal-prop')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Proprietario</label>
+        <div class="prop-input-wrap">
+          <input type="text" id="pr-name" list="prop-list" placeholder="Nome proprietario (o seleziona)" autocomplete="off">
+          <datalist id="prop-list"></datalist>
+        </div>
+      </div>
+      <div class="form-group"><label>Importo (€)</label><input type="number" id="pr-amount" placeholder="0,00" step="0.01" min="0"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="pr-date"></div>
+      <div class="form-group"><label>Metodo</label>
+        <select id="pr-method">
+          <option value="bonifico">Bonifico bancario</option>
+          <option value="contanti">Contanti</option>
+          <option value="assegno">Assegno</option>
+          <option value="altro">Altro</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Note</label><input type="text" id="pr-notes" placeholder="Quota affitto, competenze..."></div>
+      <div class="form-group full" style="background:var(--amber-bg);border-radius:var(--radius-sm);padding:12px;border:1px solid rgba(179,92,0,.15);">
+        <label style="color:var(--amber);">Commissione bancaria/postale (€) — opzionale</label>
+        <input type="number" id="pr-commission" placeholder="0,00" step="0.01" min="0" style="margin-top:6px;">
+        <div style="font-size:11px;color:var(--amber);margin-top:5px;">Aggiunta al totale versato, registrata come uscita separata.</div>
+      </div>
+      <div class="form-group full">
+        <label>Allegati (fino a 5)</label>
+        <div class="file-zone" onclick="document.getElementById('pr-files').click()">
+          <input type="file" id="pr-files" accept="image/*,.pdf" multiple style="display:none" onchange="onPropFilesSelect(this)">
+          <div class="file-zone-text"><strong>Clicca per selezionare</strong> fino a 5 file<br><span>JPG, PNG, PDF</span></div>
+        </div>
+        <div class="files-grid" id="pr-files-preview"></div>
+      </div>
+    </div>
+    <input type="hidden" id="pr-id">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-prop')">Annulla</button>
+      <button class="btn btn-primary" onclick="savePropPayment()">Salva versamento</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- DETAIL PANEL -->
 <div class="detail-panel" id="detail-panel">
@@ -3644,16 +4300,7 @@ const ESTRATTO_VOCI = [
 
 let importSelected = {}; // id -> true/false
 
-function openImportModal(){
-  // Pre-select all not already imported
-  importSelected = {};
-  ESTRATTO_VOCI.forEach(v=>{
-    const alreadyIn = debiti.some(d=>d.importId===v.id);
-    importSelected[v.id] = !alreadyIn;
-  });
-  renderImportList();
-  document.getElementById('modal-import').classList.add('open');
-}
+
 
 function renderImportList(){
   const dc = DEBT_CATS;
@@ -3711,71 +4358,9 @@ function toggleImportSel(id, checked){
   document.getElementById('import-residuo-total').textContent = fmt2(tot);
 }
 
-function doResetImport(){
-  if(!confirm("Questo cancellera tutte le voci debitorie importate e le ricrea con i dati corretti.\n\nI pagamenti manuali aggiunti andranno persi.\n\nContinuare?")) return;
-  // Remove all debiti that came from import
-  const importIds = ESTRATTO_VOCI.map(v=>v.id);
-  debiti = debiti.filter(d=>!importIds.includes(d.importId));
-  // Remove uscite created by import
-  txs = txs.filter(t=>!t.importedFromExtract);
-  // Reset importSelected to all true
-  importSelected = {};
-  ESTRATTO_VOCI.forEach(v=>{ importSelected[v.id]=true; });
-  save();
-  renderImportList();
-  showToast("Voci reimpostate — ora clicca Importa selezionati");
-}
 
-function doImport(){
-  let count = 0;
-  ESTRATTO_VOCI.forEach(v=>{
-    if(!importSelected[v.id]) return;
-    if(debiti.some(d=>d.importId===v.id)) return; // skip already imported
-    // Create debt entry
-    const paid = v.payments.reduce((s,p)=>s+p.amount,0);
-    const debt = {
-      id: uid(),
-      importId: v.id,
-      desc: v.desc,
-      cat: v.cat,
-      year: v.year,
-      total: v.total,
-      notes: v.notes,
-      open: paid < v.total,
-      payments: v.payments.map(p=>({...p, id:uid()})),
-    };
-    debiti.push(debt);
-    // Create uscite in bilancio for historical payments
-    v.payments.forEach(p=>{
-      // Determine category: owner payments -> manutenzione (in bilancio)
-      // Tenant payments -> condOwned category (out of owner bilancio)
-      const impPayerIsOwner = isProprietario(p.pagante||'');
-      const txCat = impPayerIsOwner
-        ? (v.cat==='riscaldamento' ? 'riscaldamento_prop' : v.cat==='condominio_ord' ? 'condominio_prop' : 'manutenzione')
-        : (v.cat==='riscaldamento' ? 'riscaldamento_cond' : v.cat==='condominio_ord' ? 'condominio' : 'manutenzione');
-      const tx = {
-        id: uid(),
-        type: 'uscita',
-        desc: 'Pagamento: ' + v.desc,
-        amount: p.amount,
-        date: p.date,
-        cat: txCat,
-        method: p.method,
-        party: 'Condominio Via Filippo Meda 169',
-        notes: p.notes,
-        files: [], fileData: null,
-        importedFromExtract: true,
-      };
-      txs.push(tx);
-    });
-    count++;
-  });
-  save();
-  closeModal('modal-import');
-  showToast(`✓ Importate ${count} voci — ${txs.filter(t=>t.importedFromExtract).length} uscite create`);
-  renderDebiti();
-  renderCondoGrid();
-}
+
+
 
 
 
