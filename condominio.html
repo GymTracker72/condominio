@@ -1960,22 +1960,29 @@ let oneriEditFiles = [];
 
 function onOneriEditFilesSelect(input){
   Array.from(input.files).forEach(file=>{
-    const reader = new FileReader();
-    reader.onload = e=>{
-      const data = e.target.result;
-      if(file.type==='application/pdf'){
-        uploadFileToDrive(file, null, url=>{
-          oneriEditFiles.push({name:file.name, type:file.type, url, driveFileId:'pending'});
-          renderOneriNewFilePreviews();
-        }, null);
-      } else {
-        compressImage(file, 1200, 0.75, compressed=>{
-          oneriEditFiles.push({name:file.name, type:file.type, data:compressed});
-          renderOneriNewFilePreviews();
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    if(file.type==='application/pdf'){
+      const reader = new FileReader();
+      reader.onload = async e=>{
+        const base64 = e.target.result;
+        try{
+          const result = await uploadFileToDrive(base64, file.name, file.type);
+          if(result && result.id){
+            oneriEditFiles.push({name:file.name, type:file.type, driveFileId:result.id, url:result.webViewLink||result.url||'https://drive.google.com/file/d/'+result.id+'/view'});
+          } else {
+            oneriEditFiles.push({name:file.name, type:file.type, data:base64});
+          }
+        } catch(err){
+          oneriEditFiles.push({name:file.name, type:file.type, data:base64});
+        }
+        renderOneriNewFilePreviews();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      compressImage(file, 1200, 0.75, compressed=>{
+        oneriEditFiles.push({name:file.name, type:file.type, data:compressed});
+        renderOneriNewFilePreviews();
+      });
+    }
   });
   input.value='';
 }
