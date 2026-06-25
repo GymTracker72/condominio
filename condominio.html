@@ -1966,8 +1966,8 @@ function onOneriEditFilesSelect(input){
         const base64 = e.target.result;
         try{
           const result = await uploadFileToDrive(base64, file.name, file.type);
-          if(result && result.id){
-            oneriEditFiles.push({name:file.name, type:file.type, driveFileId:result.id, url:result.webViewLink||result.url||'https://drive.google.com/file/d/'+result.id+'/view'});
+          if(result && result.driveFileId){
+            oneriEditFiles.push({name:file.name, type:file.type, driveFileId:result.driveFileId, url:result.url||'https://drive.google.com/file/d/'+result.driveFileId+'/view'});
           } else {
             oneriEditFiles.push({name:file.name, type:file.type, data:base64});
           }
