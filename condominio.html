@@ -644,7 +644,7 @@ textarea{resize:vertical;min-height:70px;}
         <div class="nav-label">Quote</div>
         <button class="nav-item" onclick="navigate('oneri')"><span class="icon">📋</span><span>Riparto spese</span></button>
         <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">💰</span><span>Versamenti</span></button>
-        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Morosità</span></button>
+        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Debiti condominio</span></button>
         <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenziario</span></button>
       </div>
 
@@ -664,7 +664,7 @@ textarea{resize:vertical;min-height:70px;}
       <div class="nav-section">
         <div class="nav-label">Report</div>
         <button class="nav-item" onclick="navigate('report_finanziario')"><span class="icon">📈</span><span>Situazione finanziaria</span></button>
-        <button class="nav-item" onclick="navigate('morosita')"><span class="icon">🔴</span><span>Morosità inquilini</span></button>
+        <button class="nav-item" onclick="navigate('morosita')"><span class="icon">🔴</span><span>Insoluti inquilini</span></button>
       </div>
 
     </nav>
@@ -787,7 +787,7 @@ textarea{resize:vertical;min-height:70px;}
     <!-- DEBITI CONDOMINIO -->
     <div id="view-debiti" class="view">
       <div class="page-header">
-        <div><div class="page-title">Morosità</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
+        <div><div class="page-title">Debiti condominio</div><div class="page-subtitle">Estratto conto — rate e residui verso il condominio</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="exportDebitiExcel()">↓ Excel</button>
           <button class="btn btn-ghost btn-sm" onclick="openImportModal()">📋 Importa estratto conto</button>
@@ -860,7 +860,7 @@ textarea{resize:vertical;min-height:70px;}
     <!-- ══ MOROSITÀ ══ -->
     <div id="view-morosita" class="view">
       <div class="page-header">
-        <div><div class="page-title">Morosità inquilini</div><div class="page-subtitle">Quote non pagate dagli inquilini</div></div>
+        <div><div class="page-title">Insoluti inquilini</div><div class="page-subtitle">Quote non pagate dagli inquilini — per anno e categoria</div></div>
         <div class="page-actions"><button class="btn btn-ghost btn-sm" onclick="exportMorositaExcel()">↓ Excel</button></div>
       </div>
       <div id="morosita-content"></div>
