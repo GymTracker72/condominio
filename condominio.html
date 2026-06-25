@@ -626,26 +626,47 @@ textarea{resize:vertical;min-height:70px;}
       <div class="sidebar-logo-addr" id="sb-addr"></div>
     </div>
     <nav class="sidebar-nav">
+
       <div class="nav-section">
-        <div class="nav-label">Panoramica</div>
-        <button class="nav-item active" onclick="navigate('dashboard')"><span class="icon">⊞</span><span>Dashboard</span></button>
+        <button class="nav-item active" onclick="navigate('dashboard')"><span class="icon">📊</span><span>Dashboard</span></button>
+        <button class="nav-item" onclick="navigate('scheda')"><span class="icon">🏠</span><span>Scheda Immobile</span></button>
       </div>
+
       <div class="nav-section">
-        <div class="nav-label">Movimenti</div>
+        <div class="nav-label">Contabilità</div>
         <button class="nav-item" onclick="navigate('entrate')"><span class="icon">↑</span><span>Entrate</span></button>
         <button class="nav-item" onclick="navigate('uscite')"><span class="icon">↓</span><span>Uscite</span></button>
-        <button class="nav-item" onclick="navigate('tutti')"><span class="icon">≡</span><span>Tutti i movimenti</span></button>
-      </div>
-      <div class="nav-section">
-        <div class="nav-label">Strumenti</div>
+        <button class="nav-item" onclick="navigate('tutti')"><span class="icon">≡</span><span>Movimenti</span></button>
         <button class="nav-item" onclick="navigate('bilancio')"><span class="icon">⚖</span><span>Bilancio</span></button>
-        <button class="nav-item" onclick="navigate('oneri')"><span class="icon">⊛</span><span>Oneri condomini</span></button>
-        <button class="nav-item" onclick="navigate('report')"><span class="icon">◫</span><span>Report / 730</span></button>
-        <button class="nav-item" onclick="navigate('anagrafica')"><span class="icon">👥</span><span>Anagrafica</span></button>
-        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Debiti condominio</span></button>
-        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">💰</span><span>Vers. proprietari</span></button>
-        <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenzario</span></button>
       </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Quote</div>
+        <button class="nav-item" onclick="navigate('oneri')"><span class="icon">📋</span><span>Riparto spese</span></button>
+        <button class="nav-item" onclick="navigate('proprietari')"><span class="icon">💰</span><span>Versamenti</span></button>
+        <button class="nav-item" onclick="navigate('debiti')"><span class="icon">⚠</span><span>Morosità</span></button>
+        <button class="nav-item" onclick="navigate('scadenze')"><span class="icon">◷</span><span>Scadenziario</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Anagrafiche</div>
+        <button class="nav-item" onclick="navigate('proprietari_anag')"><span class="icon">🔑</span><span>Proprietari</span></button>
+        <button class="nav-item" onclick="navigate('inquilini_anag')"><span class="icon">🏠</span><span>Inquilini</span></button>
+        <button class="nav-item" onclick="navigate('fornitori_anag')"><span class="icon">🔧</span><span>Fornitori</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Fisco</div>
+        <button class="nav-item" onclick="navigate('report')"><span class="icon">📑</span><span>Report 730</span></button>
+        <button class="nav-item" onclick="navigate('certificazioni')"><span class="icon">📄</span><span>Certificazioni</span></button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Report</div>
+        <button class="nav-item" onclick="navigate('report_finanziario')"><span class="icon">📈</span><span>Situazione finanziaria</span></button>
+        <button class="nav-item" onclick="navigate('morosita')"><span class="icon">🔴</span><span>Morosità inquilini</span></button>
+      </div>
+
     </nav>
     <div class="sidebar-footer">
       <div class="drive-status" onclick="driveAction(this)" id="drive-status-btn">
@@ -793,6 +814,77 @@ textarea{resize:vertical;min-height:70px;}
       </div>
       <div class="card" id="scadenze-list"></div>
     </div>
+    <!-- ══ SCHEDA IMMOBILE ══ -->
+    <div id="view-scheda" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🏠 Scheda Unità Immobiliare</div>
+          <div class="page-subtitle" id="scheda-subtitle">Interno 18 — Via Filippo Meda 169, Roma</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportSchedaPDF()">↓ Stampa PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportSchedaExcel()">↓ Excel</button>
+        </div>
+      </div>
+      <div id="scheda-content"></div>
+    </div>
+
+    <!-- ══ PROPRIETARI ANAG ══ -->
+    <div id="view-proprietari_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Proprietari</div><div class="page-subtitle">Titolari dell'immobile</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal('proprietario')">+ Aggiungi proprietario</button>
+      </div>
+      <div id="proprietari-anag-content"></div>
+    </div>
+
+    <!-- ══ INQUILINI ANAG ══ -->
+    <div id="view-inquilini_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Inquilini</div><div class="page-subtitle">Inquilini attivi e storici</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal('inquilino')">+ Aggiungi inquilino</button>
+      </div>
+      <div id="inquilini-anag-content"></div>
+    </div>
+
+    <!-- ══ FORNITORI ANAG ══ -->
+    <div id="view-fornitori_anag" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Fornitori & Tecnici</div><div class="page-subtitle">Ditte, artigiani, professionisti</div></div>
+        <button class="btn btn-primary" onclick="openAnagraficaModal('fornitore')">+ Aggiungi fornitore</button>
+      </div>
+      <div id="fornitori-anag-content"></div>
+    </div>
+
+    <!-- ══ MOROSITÀ ══ -->
+    <div id="view-morosita" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Morosità inquilini</div><div class="page-subtitle">Quote non pagate dagli inquilini</div></div>
+      </div>
+      <div id="morosita-content"></div>
+    </div>
+
+    <!-- ══ REPORT FINANZIARIO ══ -->
+    <div id="view-report_finanziario" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Situazione finanziaria</div><div class="page-subtitle">Riepilogo completo entrate, uscite e patrimonio</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="exportReportFinExcel()">↓ Excel</button>
+      </div>
+      <div id="report-fin-content"></div>
+    </div>
+
+    <!-- ══ CERTIFICAZIONI ══ -->
+    <div id="view-certificazioni" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Certificazioni</div><div class="page-subtitle">Certificazione Unica, ritenute, documentazione fiscale</div></div>
+      </div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--text-3);">
+        <div style="font-size:36px;margin-bottom:12px;">📄</div>
+        <div style="font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:6px;">Sezione in arrivo</div>
+        <div style="font-size:13px;">Certificazione Unica e ritenute d'acconto verranno aggiunte nella prossima versione.</div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -4267,6 +4359,291 @@ function repairOwnerTxCategories(){
   return fixed;
 }
 
+// ══ SCHEDA IMMOBILE ══
+function renderScheda(){
+  const el = document.getElementById('scheda-content');
+  if(!el) return;
+  const condo = currentCondo();
+  if(!condo){ el.innerHTML='<div class="empty-state">Nessun immobile selezionato</div>'; return; }
+
+  // Gather all data
+  const allTxs = txs;
+  const entrate = allTxs.filter(t=>t.type==='entrata');
+  const usciteOwner = allTxs.filter(t=>t.type==='uscita' && !CATEGORIES[t.cat]?.condOwned);
+  const totEntrate = entrate.reduce((s,t)=>s+(+t.amount),0);
+  const totUscite = usciteOwner.reduce((s,t)=>s+(+t.amount),0);
+  const totDebiti = debiti.reduce((s,d)=>s+(+d.total),0);
+  const totPagato = debiti.reduce((s,d)=>s+d.payments.reduce((sp,p)=>sp+(+p.amount),0),0);
+  const residuoDebiti = totDebiti - totPagato;
+  const totVersatoProp = propPayments.reduce((s,p)=>s+(+(p.total||p.amount)),0);
+
+  // Inquilini attivi
+  const inquAttivi = anagrafica.filter(a=>a.ruolo==='inquilino');
+  const propAttivi = anagrafica.filter(a=>a.ruolo==='proprietario');
+
+  // Oneri da riscuotere
+  const oneriDaRisc = oneriManual.filter(o=>o.stato==='da_riscuotere').reduce((s,o)=>s+(+o.importo),0);
+  const oneriRiscossi = oneriManual.filter(o=>o.stato==='riscosso').reduce((s,o)=>s+(+o.importo),0);
+
+  // Recent payments (last 5 per voce debitoria)
+  const recentPays = debiti.flatMap(d=>d.payments.map(p=>({...p, voce:d.desc, cat:d.cat})))
+    .sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+
+  el.innerHTML = `
+  <!-- HEADER SCHEDA -->
+  <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1a1a18 0%,#2d2d28 100%);color:#fff;border:none;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:22px;font-weight:500;margin-bottom:4px;">${condo.name||'Immobile'}</div>
+        <div style="font-size:13px;opacity:.7;margin-bottom:12px;">${condo.address||''}</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <div><div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.06em;">Proprietari</div>
+            <div style="font-size:13px;margin-top:2px;">${propAttivi.length>0?propAttivi.map(p=>p.nome+' '+p.cognome).join(', '):'—'}</div></div>
+          <div><div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.06em;">Inquilini attivi</div>
+            <div style="font-size:13px;margin-top:2px;">${inquAttivi.length>0?inquAttivi.map(p=>p.nome+' '+p.cognome).join(', '):'—'}</div></div>
+        </div>
+      </div>
+      <div style="font-size:11px;opacity:.5;">Aggiornato al ${new Date().toLocaleDateString('it-IT')}</div>
+    </div>
+  </div>
+
+  <!-- KPI ROW -->
+  <div class="stats-grid" style="margin-bottom:16px;">
+    <div class="stat-card"><div class="stat-label">Entrate totali</div><div class="stat-value green">${fmt(totEntrate)}</div><div class="stat-delta">${entrate.length} movimenti</div></div>
+    <div class="stat-card"><div class="stat-label">Uscite proprietari</div><div class="stat-value red">${fmt(totUscite)}</div><div class="stat-delta">incluse commissioni</div></div>
+    <div class="stat-card"><div class="stat-label">Saldo netto</div><div class="stat-value ${totEntrate-totUscite>=0?'green':'red'}">${fmt(totEntrate-totUscite)}</div><div class="stat-delta">entrate − uscite</div></div>
+    <div class="stat-card"><div class="stat-label">Debito residuo</div><div class="stat-value red">${fmt(residuoDebiti)}</div><div class="stat-delta">su ${fmt(totDebiti)} totali</div></div>
+    <div class="stat-card"><div class="stat-label">Versato proprietari</div><div class="stat-value blue">${fmt(totVersatoProp)}</div><div class="stat-delta">${propPayments.length} pagamenti</div></div>
+    <div class="stat-card"><div class="stat-label">Quote da riscuotere</div><div class="stat-value amber">${fmt(oneriDaRisc)}</div><div class="stat-delta">riscosso ${fmt(oneriRiscossi)}</div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- AVANZAMENTO DEBITI -->
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:14px;display:flex;justify-content:space-between;">
+        <span>Rientro debito condominio</span>
+        <button class="btn btn-ghost btn-xs" onclick="navigate('debiti')">Dettaglio →</button>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div class="progress-bar" style="height:10px;border-radius:5px;margin-bottom:6px;">
+          <div class="progress-fill" style="width:${Math.min(100,totDebiti>0?Math.round(totPagato/totDebiti*100):0)}%;height:100%;background:var(--green);border-radius:5px;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-3);">
+          <span>Pagato ${fmt(totPagato)}</span>
+          <span>${totDebiti>0?Math.round(totPagato/totDebiti*100):0}%</span>
+          <span>Residuo ${fmt(residuoDebiti)}</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        ${debiti.slice(0,5).map(d=>{
+          const paid=d.payments.reduce((s,p)=>s+(+p.amount),0);
+          const pct=d.total>0?Math.round(paid/d.total*100):0;
+          const stato=pct>=100?'<span style="color:var(--green);font-size:10px;">✓ Saldato</span>':pct>0?`<span style="color:var(--amber);font-size:10px;">${pct}%</span>`:'<span style="color:var(--red);font-size:10px;">Aperto</span>';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
+            <span style="flex:1;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.desc}</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--text-2);">${fmt(d.total)}</span>
+            ${stato}
+          </div>`;
+        }).join('')}
+        ${debiti.length>5?`<div style="font-size:11px;color:var(--text-3);margin-top:6px;text-align:center;">+ ${debiti.length-5} altre voci</div>`:''}
+      </div>
+    </div>
+
+    <!-- ULTIMI PAGAMENTI -->
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:14px;display:flex;justify-content:space-between;">
+        <span>Ultimi pagamenti registrati</span>
+        <button class="btn btn-ghost btn-xs" onclick="navigate('proprietari')">Tutti →</button>
+      </div>
+      ${recentPays.length===0?'<div style="text-align:center;color:var(--text-3);padding:20px;font-size:13px;">Nessun pagamento</div>':
+        recentPays.map(p=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+          <div style="width:32px;height:32px;border-radius:50%;background:${isProprietario(p.pagante||'')?'var(--blue-bg)':'var(--green-bg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${isProprietario(p.pagante||'')?'var(--blue)':'var(--green)'};flex-shrink:0;">
+            ${(p.pagante||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.pagante||'—'}</div>
+            <div style="font-size:11px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.voce}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--text-1);">${fmt(p.amount)}</div>
+            <div style="font-size:10px;color:var(--text-3);">${fmtDate(p.date)}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- ESTRATTO CONTO STORICO -->
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:14px;display:flex;justify-content:space-between;">
+      <span>Estratto conto — tutte le voci debitorie</span>
+      <button class="btn btn-ghost btn-xs" onclick="exportSchedaExcel()">↓ Excel</button>
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:var(--surface2);">
+          <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Voce</th>
+          <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Anno</th>
+          <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Dovuto</th>
+          <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Versato</th>
+          <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Residuo</th>
+          <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3);">Stato</th>
+        </tr></thead>
+        <tbody>
+          ${debiti.map(d=>{
+            const paid=d.payments.reduce((s,p)=>s+(+p.amount),0);
+            const res=d.total-paid;
+            const pct=d.total>0?paid/d.total:0;
+            const stato=res<=0?{t:'Saldato',c:'var(--green)'}:pct>0?{t:'Parziale',c:'var(--amber)'}:{t:'Aperto',c:'var(--red)'};
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:9px 12px;font-weight:500;">${d.desc}</td>
+              <td style="padding:9px 12px;color:var(--text-3);">${d.year||'—'}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;">${fmt(d.total)}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);">${fmt(paid)}</td>
+              <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;color:${res>0?'var(--red)':'var(--green)'};">${fmt(res)}</td>
+              <td style="padding:9px 12px;text-align:center;"><span style="font-size:10px;font-weight:600;color:${stato.c};background:${stato.c}15;padding:2px 8px;border-radius:10px;">${stato.t}</span></td>
+            </tr>`;
+          }).join('')}
+          <tr style="background:var(--surface2);font-weight:600;">
+            <td colspan="2" style="padding:9px 12px;">TOTALE</td>
+            <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;">${fmt(totDebiti)}</td>
+            <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);">${fmt(totPagato)}</td>
+            <td style="padding:9px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--red);">${fmt(residuoDebiti)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ══ ANAGRAFICA FILTRO ══
+function renderAnagraficaFiltro(ruolo, containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const ruoliMap = {
+    proprietario:['proprietario'],
+    inquilino:['inquilino','ex_inquilino'],
+    fornitore:['fornitore','tecnico','altro']
+  };
+  const list = anagrafica.filter(a=> (ruoliMap[ruolo]||[ruolo]).includes(a.ruolo));
+  if(!list.length){
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👤</div>
+      <h3>Nessun ${ruolo} registrato</h3>
+      <p>Usa "Precompila" per aggiungere i soggetti noti</p>
+      <button class="btn btn-ghost btn-sm" onclick="prePopulateAnagrafica()">📋 Precompila con dati noti</button></div>`;
+    return;
+  }
+  const colors = {'#2d6a4f':'verde','#1a4a8a':'blu','#b35c00':'arancio','#6b3fa0':'viola','#c0392b':'rosso'};
+  const colorKeys = Object.keys(colors);
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">
+    ${list.map((a,i)=>{
+      const bg = colorKeys[i%colorKeys.length];
+      const initials = ((a.nome||'')[0]+(a.cognome||'')[0]).toUpperCase();
+      const name = [a.nome,a.cognome].filter(Boolean).join(' ') || a.nome || '—';
+      return `<div class="card" style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:${bg};color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>
+          <div><div style="font-size:14px;font-weight:500;">${name}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:1px;">${a.ruolo||''} ${a.dal?'· dal '+fmtDate(a.dal):''} ${a.al?'al '+fmtDate(a.al):''}</div></div>
+        </div>
+        ${a.tel?`<div style="font-size:12px;color:var(--text-2);margin-bottom:4px;">📞 <a href="tel:${a.tel}" style="color:inherit;text-decoration:none;">${a.tel}</a></div>`:''}
+        ${a.email?`<div style="font-size:12px;color:var(--text-2);margin-bottom:4px;">✉ <a href="mailto:${a.email}" style="color:inherit;text-decoration:none;">${a.email}</a></div>`:''}
+        ${a.cf?`<div style="font-size:11px;color:var(--text-3);">CF: ${a.cf}</div>`:''}
+        ${a.note?`<div style="font-size:11px;color:var(--text-3);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">${a.note}</div>`:''}
+        <div style="display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+          <button class="btn btn-ghost btn-xs" onclick="openAnagraficaModal(null,'${a.id}')">✎ Modifica</button>
+          <button class="btn btn-xs" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-light);" onclick="deleteAnagrafica('${a.id}')">✕</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ══ MOROSITÀ ══
+function renderMorosita(){
+  const el = document.getElementById('morosita-content');
+  if(!el) return;
+  // Build list from oneriManual where stato = da_riscuotere or parziale
+  const morosi = oneriManual.filter(o=>['da_riscuotere','parziale'].includes(o.stato));
+  const totMorosita = morosi.reduce((s,o)=>s+(+o.importo),0);
+  const byInquilino = {};
+  morosi.forEach(o=>{
+    const k = o.inquilino||'N/D';
+    byInquilino[k] = byInquilino[k]||[];
+    byInquilino[k].push(o);
+  });
+  if(!morosi.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-state-icon" style="font-size:36px;">✅</div><h3>Nessuna morosità</h3><p>Tutte le quote risultano saldate o non presenti</p></div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">Totale da riscuotere</div><div class="stat-value red">${fmt(totMorosita)}</div><div class="stat-delta">${morosi.length} voci aperte</div></div>
+      <div class="stat-card"><div class="stat-label">Inquilini morosi</div><div class="stat-value amber">${Object.keys(byInquilino).length}</div></div>
+    </div>
+    ${Object.entries(byInquilino).map(([nome, voci])=>{
+      const tot = voci.reduce((s,o)=>s+(+o.importo),0);
+      return `<div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+          <div style="font-size:14px;font-weight:500;">${nome}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red);">${fmt(tot)}</div>
+        </div>
+        ${voci.map(o=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="flex:1;color:var(--text-2);">${o.desc||o.cat}</span>
+          <span style="font-size:11px;color:var(--text-3);">${o.anno||''}</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--red);">${fmt(o.importo)}</span>
+          <span class="badge ${o.stato==='parziale'?'badge-amber':'badge-red'}">${o.stato==='parziale'?'Parziale':'Da riscuotere'}</span>
+        </div>`).join('')}
+      </div>`;
+    }).join('')}`;
+}
+
+// ══ REPORT FINANZIARIO ══
+function renderReportFinanziario(){
+  const el = document.getElementById('report-fin-content');
+  if(!el) return;
+  const years = [...new Set(txs.map(t=>t.date?.slice(0,4)))].filter(Boolean).sort().reverse();
+  let html = '';
+  years.forEach(y=>{
+    const ytxs = txs.filter(t=>t.date?.startsWith(y));
+    const entrate = ytxs.filter(t=>t.type==='entrata').reduce((s,t)=>s+(+t.amount),0);
+    const uscite = ytxs.filter(t=>t.type==='uscita'&&!CATEGORIES[t.cat]?.condOwned).reduce((s,t)=>s+(+t.amount),0);
+    html += `<div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:500;">${y}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:${entrate-uscite>=0?'var(--green)':'var(--red)'};">${fmt(entrate-uscite)}</div>
+      </div>
+      <div class="progress-bar" style="height:6px;margin-bottom:10px;">
+        <div class="progress-fill" style="width:${entrate>0?Math.min(100,Math.round(uscite/entrate*100)):0}%;background:var(--red);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="color:var(--green);">↑ Entrate ${fmt(entrate)}</span>
+        <span style="color:var(--red);">↓ Uscite ${fmt(uscite)}</span>
+      </div>
+    </div>`;
+  });
+  if(!years.length) html = '<div class="empty-state"><div class="empty-state-icon">📈</div><h3>Nessun dato</h3><p>Aggiungi movimenti per vedere il report finanziario</p></div>';
+  el.innerHTML = html;
+}
+
+function exportSchedaExcel(){
+  if(!window.XLSX){ showToast('Libreria Excel non caricata'); return; }
+  const wb = XLSX.utils.book_new();
+  const rows = [['Voce','Anno','Dovuto','Versato','Residuo','Stato']];
+  debiti.forEach(d=>{
+    const paid=d.payments.reduce((s,p)=>s+(+p.amount),0);
+    rows.push([d.desc, d.year||'', +d.total, paid, d.total-paid, paid>=d.total?'Saldato':paid>0?'Parziale':'Aperto']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:36},{wch:8},{wch:12},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Estratto conto');
+  XLSX.writeFile(wb, 'Scheda_Immobile.xlsx');
+}
+
+function exportSchedaPDF(){ showToast('Export PDF in sviluppo — usa la stampa del browser (Cmd+P)'); window.print(); }
+
 // ══ MOBILE NAVIGATION ══
 function toggleSidebar(){
   const sidebar = document.getElementById('sidebar');
@@ -4293,10 +4670,14 @@ function closeSidebar(){
 }
 
 function updateBottomNav(view){
-  const map = {dashboard:'bn-dashboard', movimenti:'bn-movimenti',
-               entrate:'bn-movimenti', uscite:'bn-movimenti', tutti:'bn-movimenti',
-               debiti:'bn-debiti', rientro:'bn-debiti', pagamenti_prop:'bn-debiti', rate:'bn-debiti',
-               anagrafica:'bn-anagrafica', allegati:'bn-anagrafica', audit:'bn-anagrafica'};
+  const map = {
+    dashboard:'bn-dashboard', scheda:'bn-dashboard',
+    entrate:'bn-movimenti', uscite:'bn-movimenti', tutti:'bn-movimenti', bilancio:'bn-movimenti',
+    debiti:'bn-debiti', proprietari:'bn-debiti', oneri:'bn-debiti', scadenze:'bn-debiti', morosita:'bn-debiti',
+    proprietari_anag:'bn-anagrafica', inquilini_anag:'bn-anagrafica', fornitori_anag:'bn-anagrafica',
+    anagrafica:'bn-anagrafica', report:'bn-anagrafica', certificazioni:'bn-anagrafica',
+    report_finanziario:'bn-anagrafica'
+  };
   document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
   const activeId = map[view];
   if(activeId){
