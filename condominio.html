@@ -1611,27 +1611,33 @@ function deleteCondoConfirm(id){
 function navigate(view){
   closeSidebar();
   updateBottomNav(view);
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('view-'+view).classList.add('active');
+  document.getElementById('view-'+view)?.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes("'"+view+"'")) n.classList.add('active'); });
-  if(view==='dashboard') renderDashboard();
-  if(view==='entrate')   renderList('entrate');
-  if(view==='uscite')    renderList('uscite');
-  if(view==='tutti')     renderList('tutti');
-  if(view==='anagrafica'){
-    // Always reload fresh from localStorage
-    if(currentCondoId){
-      try{ const a=JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_anagrafica')); if(a&&a.length) anagrafica=a; }catch(e){}
-    }
-    renderAnagrafica();
+  // Reload anagrafica from localStorage if empty
+  const needsAnag = ['anagrafica','proprietari_anag','inquilini_anag','fornitori_anag'].includes(view);
+  if(needsAnag && currentCondoId){
+    try{ const a=JSON.parse(localStorage.getItem('condo_'+currentCondoId+'_anagrafica')); if(a&&a.length) anagrafica=a; }catch(e){}
   }
-  if(view==='debiti')    renderDebiti();
-  if(view==='proprietari') renderProprietari();
-  if(view==='bilancio')  renderBilancio();
-  if(view==='oneri')     renderOneri();
-  if(view==='report')    renderReport();
-  if(view==='scadenze')  renderScadenze();
+  if(view==='dashboard')        renderDashboard();
+  if(view==='entrate')          renderList('entrate');
+  if(view==='uscite')           renderList('uscite');
+  if(view==='tutti')            renderList('tutti');
+  if(view==='anagrafica')       renderAnagrafica();
+  if(view==='proprietari_anag') renderAnagraficaFiltro('proprietario','proprietari-anag-content');
+  if(view==='inquilini_anag')   renderAnagraficaFiltro('inquilino','inquilini-anag-content');
+  if(view==='fornitori_anag')   renderAnagraficaFiltro('fornitore','fornitori-anag-content');
+  if(view==='debiti')           renderDebiti();
+  if(view==='proprietari')      renderProprietari();
+  if(view==='bilancio')         renderBilancio();
+  if(view==='oneri')            renderOneri();
+  if(view==='report')           renderReport();
+  if(view==='scadenze')         renderScadenze();
+  if(view==='scheda')           renderScheda();
+  if(view==='morosita')         renderMorosita();
+  if(view==='report_finanziario') renderReportFinanziario();
+  if(view==='certificazioni')   {}
 }
 function onYearChange(y){
   currentYear=y;
